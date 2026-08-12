@@ -51,11 +51,6 @@ turn-indexed series:
 
 - `occurrence_prob`: probability that the expected-score-maximizing policy
   wins with the yaku. This is an event probability, not a score contribution.
-- `inclusive_score`: expected score of wins that contain the yaku. Overlap is
-  intentional, so these values are not additive.
-- `marginal_score`: expected score lost when that yaku's value is removed from
-  the terminal score calculation. This captures nonlinear mangan/haneman/etc.
-  limits, but is not a Shapley allocation and is also not additive.
 - `shapley_score`: exact Shapley allocation among every scoring yaku and bonus
   in the terminal result. Enable it with `Config::calc_shapley_stats`. With the
   complete default `yaku_filter`, the values sum to `Stat::exp_score` for every
@@ -63,8 +58,7 @@ turn-indexed series:
 
 All series are propagated through the same state graph and the same
 score-maximizing policy as total expected score. Uradora uses the existing exact
-indicator distribution: inclusive contribution conditions on one or more ura,
-while marginal contribution compares against the zero-ura score.
+indicator distribution.
 
 Ippatsu, haitei and houtei are path-dependent. When tegawari is enabled, their
 increment is evaluated by a separate turn-limited DP with tegawari state merging

@@ -35,8 +35,8 @@ int main()
         std::cout << "ron_rate=" << ron_rate << " searched=" << searched
                   << " score=" << stats.front().exp_score[1] << '\n';
         for (const auto &yaku : stats.front().yaku_stats) {
-            std::cout << Yaku::name(yaku.yaku) << '\t' << yaku.inclusive_score[1]
-                      << '\t' << yaku.marginal_score[1] << '\t' << yaku.shapley_score[1]
+            std::cout << Yaku::name(yaku.yaku) << '\t'
+                      << yaku.occurrence_prob[1] << '\t' << yaku.shapley_score[1]
                       << '\n';
         }
     }

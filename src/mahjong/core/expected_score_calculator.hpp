@@ -79,10 +79,6 @@ class ExpectedScoreCalculator
         YakuFlags yaku = Yaku::None;
         /* Probability that the selected expected-score policy wins with this yaku. */
         std::vector<double> occurrence_prob;
-        /* Total expected score of wins containing this yaku. Overlaps are intentional. */
-        std::vector<double> inclusive_score;
-        /* Expected score lost when this yaku's value is removed. */
-        std::vector<double> marginal_score;
         /* Exact Shapley allocation. Values sum to total expected score. */
         std::vector<double> shapley_score;
         /* Joint probability that a dynamic call occurred and this yaku wins. */
@@ -182,8 +178,6 @@ class ExpectedScoreCalculator
     {
         double score = 0.0;
         std::array<double, Yaku::Length> occurrence{};
-        std::array<double, Yaku::Length> inclusive{};
-        std::array<double, Yaku::Length> marginal{};
         std::array<double, Yaku::Length> shapley{};
     };
 
@@ -191,10 +185,8 @@ class ExpectedScoreCalculator
     struct ContributionData
     {
         YakuFlags yaku = Yaku::None;
-        double occurrence = 0.0;
-        double inclusive = 0.0;
-        double marginal = 0.0;
-        double shapley = 0.0;
+        float occurrence = 0.0F;
+        float shapley = 0.0F;
     };
 
     using Vertex = std::uint32_t;
@@ -235,11 +227,10 @@ class ExpectedScoreCalculator
             const auto append_contributions = [this](const ScoreData &data) {
                 const auto offset = static_cast<std::uint32_t>(contributions.size());
                 for (int i = 0; i < Yaku::Length; ++i) {
-                    if (data.occurrence[i] != 0.0 || data.inclusive[i] != 0.0 ||
-                        data.marginal[i] != 0.0 || data.shapley[i] != 0.0) {
+                    if (data.occurrence[i] != 0.0 || data.shapley[i] != 0.0) {
                         contributions.push_back(ContributionData{
-                            YakuFlags{1} << i, data.occurrence[i], data.inclusive[i],
-                            data.marginal[i], data.shapley[i]});
+                            YakuFlags{1} << i, static_cast<float>(data.occurrence[i]),
+                            static_cast<float>(data.shapley[i])});
                     }
                 }
                 return std::pair<std::uint32_t, std::uint16_t>{
@@ -289,6 +280,18 @@ class ExpectedScoreCalculator
         std::vector<std::uint32_t> first_out_edges;
         std::vector<std::uint32_t> first_in_edges;
         std::vector<ContributionData> contributions;
+
+        void release_adjacency()
+        {
+            std::vector<EdgeData>().swap(edges);
+            std::vector<std::uint32_t>().swap(first_out_edges);
+            std::vector<std::uint32_t>().swap(first_in_edges);
+        }
+
+        void release_contributions()
+        {
+            std::vector<ContributionData>().swap(contributions);
+        }
     };
 
     using Cache = boost::unordered_flat_map<CacheKey, Vertex, CacheKeyHash>;

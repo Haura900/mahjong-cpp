@@ -140,7 +140,7 @@ TEST_CASE("four-shanten state is calculated")
     }
 }
 
-TEST_CASE("exact DP reports inclusive and marginal yaku contributions")
+TEST_CASE("exact DP reports yaku occurrence and additive Shapley contributions")
 {
     Context context;
     PlayerState player = player_for("23455m234p23467s");
@@ -159,14 +159,8 @@ TEST_CASE("exact DP reports inclusive and marginal yaku contributions")
     CHECK(shapley_sum(tsumo, 1) == Approx(tsumo.exp_score[1]).margin(1e-10));
 
     const auto &sanshoku = yaku_for(tsumo, Yaku::MixedTripleSequence);
-    CHECK(sanshoku.occurrence_prob[1] == Approx(tsumo.win_prob[1]).epsilon(1e-13));
-    CHECK(sanshoku.inclusive_score[1] == Approx(561.98347107438019).epsilon(1e-13));
-    CHECK(sanshoku.marginal_score[1] == Approx(362.80991735537191).epsilon(1e-13));
-    CHECK(sanshoku.inclusive_score[1] > sanshoku.marginal_score[1]);
-    CHECK(sanshoku.shapley_score[1] == Approx(223.96694214876032).epsilon(1e-13));
-
-    const auto &pinfu = yaku_for(tsumo, Yaku::Pinfu);
-    CHECK(pinfu.marginal_score[1] == Approx(195.04132231404958).epsilon(1e-13));
+    CHECK(sanshoku.occurrence_prob[1] == Approx(tsumo.win_prob[1]).epsilon(1e-5));
+    CHECK(sanshoku.shapley_score[1] == Approx(223.96694214876032).epsilon(1e-5));
 
     ExpectedScoreCalculator::Config mixed_config = tsumo_config;
     mixed_config.ron_rate = 0.7;
@@ -180,16 +174,12 @@ TEST_CASE("exact DP reports inclusive and marginal yaku contributions")
     CHECK(mixed.exp_score[1] ==
           Approx(526.69421487603302 / mixed_denominator).epsilon(1e-13));
     CHECK(shapley_sum(mixed, 1) == Approx(mixed.exp_score[1]).margin(1e-10));
-    CHECK(yaku_for(mixed, Yaku::Tsumo).inclusive_score[1] ==
-          Approx(yaku_for(tsumo, Yaku::Tsumo).inclusive_score[1] * 0.3 /
-                 mixed_denominator)
-              .epsilon(1e-13));
     CHECK(yaku_for(mixed, Yaku::Tsumo).occurrence_prob[1] ==
           Approx(yaku_for(tsumo, Yaku::Tsumo).occurrence_prob[1] * 0.3 /
                  mixed_denominator)
-              .epsilon(1e-13));
+              .epsilon(1e-5));
     CHECK(yaku_for(mixed, Yaku::Tsumo).occurrence_prob[1] ==
-          Approx(mixed.win_prob[1] * 0.3).epsilon(1e-13));
+          Approx(mixed.win_prob[1] * 0.3).epsilon(1e-5));
 }
 
 TEST_CASE("other-player win hazard terminates self-win paths")
@@ -426,8 +416,8 @@ TEST_CASE("turn-aware DP includes ippatsu and count-selected haitei")
     REQUIRE(searched > 0);
     const auto &discard = stat_for(stats, Tile::Manzu9);
 
-    CHECK(yaku_for(discard, Yaku::Ippatsu).inclusive_score[1] > 0.0);
-    CHECK(yaku_for(discard, Yaku::UnderTheSea).inclusive_score[1] > 0.0);
+    CHECK(yaku_for(discard, Yaku::Ippatsu).occurrence_prob[1] > 0.0);
+    CHECK(yaku_for(discard, Yaku::UnderTheSea).occurrence_prob[1] > 0.0);
     CHECK(std::none_of(
         discard.yaku_stats.begin(), discard.yaku_stats.end(),
         [](const auto &entry) { return entry.yaku == Yaku::UnderTheRiver; }));
@@ -527,8 +517,8 @@ TEST_CASE("ippatsu expires after one missed draw and riichi hand stays fixed")
     const auto &riichi = yaku_for(discard, Yaku::Riichi);
     const auto &ippatsu = yaku_for(discard, Yaku::Ippatsu);
 
-    CHECK(ippatsu.inclusive_score[1] > 0.0);
-    CHECK(riichi.inclusive_score[1] > ippatsu.inclusive_score[1]);
+    CHECK(ippatsu.occurrence_prob[1] > 0.0);
+    CHECK(riichi.occurrence_prob[1] > ippatsu.occurrence_prob[1]);
     CHECK(riichi.shapley_score[1] > ippatsu.shapley_score[1]);
     CHECK(shapley_sum(discard, 1) == Approx(discard.exp_score[1]).margin(1e-9));
 }

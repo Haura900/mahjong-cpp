@@ -418,41 +418,6 @@ double score_for_han(const TableConfig &table_config, const RoundState &round_st
         table_state.kyotaku, table_config.game_mode, score_limit, han, result.fu)[0];
 }
 
-double score_without_bonus(const ExpectedScoreCalculator::Config &config,
-                           const TableConfig &table_config,
-                           const RoundState &round_state, const TableState &table_state,
-                           const PlayerState &player, const SeparatedCount &hand_counts,
-                           const SeparatedCount &wall_counts, const ScoreResult &result,
-                           const int win_flag, const int removed_han)
-{
-    if (result.score_limit >= ScoreLimit::CountedYakuman) {
-        return result.payments[0];
-    }
-    if (!config.enable_uradora || !(win_flag & WinFlag::Riichi) ||
-        table_state.dora_indicators.empty()) {
-        return score_for_han(table_config, round_state, table_state, player, result,
-                             win_flag, result.han - removed_han);
-    }
-
-    const MergedCount wall = to_merged_count(wall_counts);
-    MergedCount hand_and_melds = to_merged_count(hand_counts);
-    for (const auto &meld : player.melds) {
-        for (const auto tile : meld.tiles) {
-            ++hand_and_melds[Tile::to_normal(tile)];
-        }
-    }
-    const auto probabilities = calc_uradora_distribution(
-        wall, hand_and_melds, table_state.dora_indicators.size(),
-        table_config.game_mode);
-    double score = 0.0;
-    for (int ura = 0; ura <= 12; ++ura) {
-        score += probabilities[ura] *
-                 score_for_han(table_config, round_state, table_state, player, result,
-                               win_flag, result.han + ura - removed_han);
-    }
-    return score;
-}
-
 void calc_shapley_allocation(const ExpectedScoreCalculator::Config &config,
                              const TableConfig &table_config,
                              const RoundState &round_state,
@@ -603,23 +568,6 @@ void calc_shapley_allocation(const ExpectedScoreCalculator::Config &config,
     data.shapley[first_tile(roles.front().yaku)] += data.score - allocated;
 }
 
-YakuValueTable without_yaku_value(const YakuFlags yaku)
-{
-    YakuValueTable table = ScoreCalculator::default_yaku_value_table();
-    for (auto &entry : table.yaku_han) {
-        if (entry.yaku == yaku) {
-            entry.closed_han = 0;
-            entry.open_han = 0;
-        }
-    }
-    for (auto &entry : table.yakuman_multipliers) {
-        if (entry.yaku == yaku) {
-            entry.multiplier = 0;
-        }
-    }
-    return table;
-}
-
 ExpectedScoreCalculator::ScoreData
 calc_score_variant(const ExpectedScoreCalculator::Config &config,
                    const TableConfig &table_config, const RoundState &round_state,
@@ -647,35 +595,7 @@ calc_score_variant(const ExpectedScoreCalculator::Config &config,
         }
     }
 
-    constexpr YakuFlags bonus = Yaku::Dora | Yaku::RedDora | Yaku::NukiDora;
     if (config.calc_yaku_stats) {
-        for (const auto &entry : result.yaku_list) {
-            if (!(config.yaku_filter & entry.yaku)) {
-                continue;
-            }
-            const int index = first_tile(entry.yaku);
-            data.inclusive[index] = data.score;
-
-            double score_without = 0.0;
-            if (entry.yaku & bonus) {
-                score_without = score_without_bonus(
-                    config, table_config, round_state, table_state, player, hand_counts,
-                    wall_counts, result, win_flag, entry.han);
-            }
-            else {
-                const YakuValueTable value_table = without_yaku_value(entry.yaku);
-                const ScoreResult removed = ScoreCalculator::calc_fast(
-                    table_config, round_state, table_state, player, win_tile, win_flag,
-                    shanten_type, value_table);
-                if (removed.success && has_value_yaku(removed, entry.yaku)) {
-                    score_without = final_score(config, table_config, round_state,
-                                                table_state, player, hand_counts,
-                                                wall_counts, removed, win_flag);
-                }
-            }
-            data.marginal[index] = std::max(0.0, data.score - score_without);
-        }
-
         if ((config.yaku_filter & Yaku::UraDora) && config.enable_uradora &&
             (win_flag & WinFlag::Riichi) && !table_state.dora_indicators.empty() &&
             result.score_limit < ScoreLimit::CountedYakuman) {
@@ -689,16 +609,8 @@ calc_score_variant(const ExpectedScoreCalculator::Config &config,
             const auto probabilities = calc_uradora_distribution(
                 wall, hand_and_melds, table_state.dora_indicators.size(),
                 table_config.game_mode);
-            const auto scores = ScoreCalculator::get_up_scores(
-                table_config, round_state, table_state, player, result, win_flag, 12);
-            double inclusive = 0.0;
-            for (int ura = 1; ura <= 12; ++ura) {
-                inclusive += probabilities[ura] * scores[ura];
-            }
             const int index = first_tile(Yaku::UraDora);
             data.occurrence[index] = 1.0 - probabilities[0];
-            data.inclusive[index] = inclusive;
-            data.marginal[index] = std::max(0.0, data.score - scores[0]);
         }
     }
 
@@ -750,12 +662,8 @@ ExpectedScoreCalculator::ScoreData calc_score_data(
     const double tsumo_rate = 1.0 - effective_ron_rate;
     score.score = tsumo_rate * score.score + effective_ron_rate * ron.score;
     for (int i = 0; i < Yaku::Length; ++i) {
-        score.inclusive[i] =
-            tsumo_rate * score.inclusive[i] + effective_ron_rate * ron.inclusive[i];
         score.occurrence[i] =
             tsumo_rate * score.occurrence[i] + effective_ron_rate * ron.occurrence[i];
-        score.marginal[i] =
-            tsumo_rate * score.marginal[i] + effective_ron_rate * ron.marginal[i];
         score.shapley[i] =
             tsumo_rate * score.shapley[i] + effective_ron_rate * ron.shapley[i];
     }
@@ -898,6 +806,12 @@ class ExpectedScoreCalculator::GraphBuilder
     const std::vector<CallOption> &call_options() const
     {
         return call_options_;
+    }
+
+    void release_caches()
+    {
+        Cache().swap(cache1_);
+        Cache().swap(cache2_);
     }
 
     void draw_tile(const int tile)
@@ -1377,20 +1291,30 @@ void ExpectedScoreCalculator::calc_stats(
     for (const auto &option : call_options) {
         call_tile_mask |= std::uint64_t{1} << option.tile;
     }
-    std::vector<std::array<float, 37>> call_tile_probability;
-    if (call_tile_mask != 0) {
-        call_tile_probability.resize(graph.num_vertices());
+    std::array<int, 37> call_tile_slot{};
+    call_tile_slot.fill(-1);
+    std::vector<int> call_tiles;
+    std::uint64_t active_call_tiles = call_tile_mask;
+    while (active_call_tiles) {
+        const int tile = first_tile(active_call_tiles);
+        active_call_tiles &= active_call_tiles - 1;
+        call_tile_slot[tile] = static_cast<int>(call_tiles.size());
+        call_tiles.push_back(tile);
     }
+    const std::size_t call_tile_count = call_tiles.size();
+    std::vector<float> call_tile_probability(graph.num_vertices() * call_tile_count);
+    const auto call_tile_index = [call_tile_count, &call_tile_slot](const Vertex vertex,
+                                                                    const int tile) {
+        return static_cast<std::size_t>(vertex) * call_tile_count +
+               static_cast<std::size_t>(call_tile_slot[tile]);
+    };
     for (auto &stat : stats) {
         stat.tenpai_prob.assign(config.t_max + 1, 0.0);
         stat.win_prob.assign(config.t_max + 1, 0.0);
         stat.exp_score.assign(config.t_max + 1, 0.0);
         stat.call_prob.assign(config.t_max + 1, 0.0);
         stat.call_win_prob.assign(config.t_max + 1, 0.0);
-        std::uint64_t tiles = call_tile_mask;
-        while (tiles) {
-            const int tile = first_tile(tiles);
-            tiles &= tiles - 1;
+        for (const int tile : call_tiles) {
             stat.call_tile_stats.push_back(
                 CallTileStat{tile, std::vector<double>(config.t_max + 1, 0.0)});
         }
@@ -1405,12 +1329,14 @@ void ExpectedScoreCalculator::calc_stats(
             Vertex source;
             VertexData source_state;
             VertexData expired_state;
-            std::array<float, 37> source_call_tiles{};
-            std::array<float, 37> expired_call_tiles{};
+            std::size_t call_tile_offset;
             int outgoing_weight;
         };
         std::vector<IppatsuStateSnapshot> ippatsu_expiry_snapshot;
         ippatsu_expiry_snapshot.reserve(ippatsu_expiries.size());
+        std::vector<float> ippatsu_call_tile_snapshot(
+            ippatsu_expiries.size() * call_tile_count * 2);
+        std::size_t ippatsu_index = 0;
         for (const auto &[source, expired] : ippatsu_expiries) {
             int outgoing_weight = 0;
             const std::size_t vi = static_cast<std::size_t>(source);
@@ -1418,13 +1344,21 @@ void ExpectedScoreCalculator::calc_stats(
                  ei < edge_csr.draw_edge_offsets[vi + 1]; ++ei) {
                 outgoing_weight += edge_csr.draw_edges[ei].weight;
             }
+            const std::size_t snapshot_offset = ippatsu_index * call_tile_count * 2;
+            for (std::size_t slot = 0; slot < call_tile_count; ++slot) {
+                ippatsu_call_tile_snapshot[snapshot_offset + slot] =
+                    call_tile_probability[static_cast<std::size_t>(source) *
+                                              call_tile_count +
+                                          slot];
+                ippatsu_call_tile_snapshot[snapshot_offset + call_tile_count + slot] =
+                    call_tile_probability[static_cast<std::size_t>(expired) *
+                                              call_tile_count +
+                                          slot];
+            }
             ippatsu_expiry_snapshot.push_back(IppatsuStateSnapshot{
-                source, graph[source], graph[expired],
-                call_tile_probability.empty() ? std::array<float, 37>{}
-                                              : call_tile_probability[source],
-                call_tile_probability.empty() ? std::array<float, 37>{}
-                                              : call_tile_probability[expired],
+                source, graph[source], graph[expired], snapshot_offset,
                 outgoing_weight});
+            ++ippatsu_index;
         }
         // draw node
 #ifdef _OPENMP
@@ -1439,9 +1373,10 @@ void ExpectedScoreCalculator::calc_stats(
             if (t == config.t_max) {
                 s1.call_prob = s1.dynamic_called ? 1.0 : 0.0;
                 s1.call_win_prob = 0.0;
-                if (s1.dynamic_called && !call_tile_probability.empty() &&
+                if (s1.dynamic_called && call_tile_count != 0 &&
                     s1.dynamic_call_tile >= 0) {
-                    call_tile_probability[vertex][s1.dynamic_call_tile] = 1.0F;
+                    call_tile_probability[call_tile_index(vertex,
+                                                          s1.dynamic_call_tile)] = 1.0F;
                 }
                 if (s1.is_tenpai) {
                     s1.tenpai_prob = 1.0;
@@ -1489,13 +1424,12 @@ void ExpectedScoreCalculator::calc_stats(
                 call_delta += edge.weight * (call_prob - previous_call_prob);
                 call_win_delta +=
                     edge.weight * (call_win_prob - previous_call_win_prob);
-                std::uint64_t tiles = call_tile_mask;
-                while (tiles) {
-                    const int tile = first_tile(tiles);
-                    tiles &= tiles - 1;
-                    call_tile_delta[tile] +=
-                        edge.weight * (call_tile_probability[edge.target][tile] -
-                                       call_tile_probability[vertex][tile]);
+                for (std::size_t slot = 0; slot < call_tile_count; ++slot) {
+                    call_tile_delta[slot] += edge.weight *
+                        (call_tile_probability[static_cast<std::size_t>(edge.target) *
+                                                   call_tile_count + slot] -
+                         call_tile_probability[static_cast<std::size_t>(vertex) *
+                                                   call_tile_count + slot]);
                 }
             }
 
@@ -1508,12 +1442,10 @@ void ExpectedScoreCalculator::calc_stats(
             s1.call_prob = previous_call_prob + call_delta / (config.sum - t);
             s1.call_win_prob =
                 previous_call_win_prob + call_win_delta / (config.sum - t);
-            std::uint64_t tiles = call_tile_mask;
-            while (tiles) {
-                const int tile = first_tile(tiles);
-                tiles &= tiles - 1;
-                call_tile_probability[vertex][tile] +=
-                    static_cast<float>(call_tile_delta[tile] / (config.sum - t));
+            for (std::size_t slot = 0; slot < call_tile_count; ++slot) {
+                call_tile_probability[static_cast<std::size_t>(vertex) *
+                                          call_tile_count + slot] +=
+                    static_cast<float>(call_tile_delta[slot] / (config.sum - t));
             }
             if (immediate_win_weight > 0) {
                 turn_tsumo_probability[vertex] =
@@ -1548,15 +1480,15 @@ void ExpectedScoreCalculator::calc_stats(
                                        (snapshot.expired_state.call_win_prob -
                                         snapshot.source_state.call_win_prob) /
                                        denominator;
-                std::uint64_t tiles = call_tile_mask;
-                while (tiles) {
-                    const int tile = first_tile(tiles);
-                    tiles &= tiles - 1;
-                    call_tile_probability[snapshot.source][tile] +=
-                        static_cast<float>(miss_weight *
-                                           (snapshot.expired_call_tiles[tile] -
-                                            snapshot.source_call_tiles[tile]) /
-                                           denominator);
+                for (std::size_t slot = 0; slot < call_tile_count; ++slot) {
+                    call_tile_probability[static_cast<std::size_t>(snapshot.source) *
+                                              call_tile_count + slot] +=
+                        static_cast<float>(
+                            miss_weight *
+                            (ippatsu_call_tile_snapshot[snapshot.call_tile_offset +
+                                                        call_tile_count + slot] -
+                             ippatsu_call_tile_snapshot[snapshot.call_tile_offset + slot]) /
+                            denominator);
                 }
             }
 
@@ -1576,16 +1508,14 @@ void ExpectedScoreCalculator::calc_stats(
                                   state.dynamic_called ? 1.0 : 0.0);
                 expand_turn_value(state.call_win_prob, tsumo_probability,
                                   total_probability, state.dynamic_called ? 1.0 : 0.0);
-                std::uint64_t tiles = call_tile_mask;
-                while (tiles) {
-                    const int tile = first_tile(tiles);
-                    tiles &= tiles - 1;
-                    double probability = call_tile_probability[vertex][tile];
+                for (const int tile : call_tiles) {
+                    double probability =
+                        call_tile_probability[call_tile_index(vertex, tile)];
                     expand_turn_value(
                         probability, tsumo_probability, total_probability,
                         state.dynamic_called && state.dynamic_call_tile == tile ? 1.0
                                                                                 : 0.0);
-                    call_tile_probability[vertex][tile] =
+                    call_tile_probability[call_tile_index(vertex, tile)] =
                         static_cast<float>(probability);
                 }
             }
@@ -1604,11 +1534,8 @@ void ExpectedScoreCalculator::calc_stats(
                     graph[vertex].call_win_prob *= survival;
                     if (!graph[vertex].dynamic_called) {
                         graph[vertex].call_prob *= survival;
-                        std::uint64_t tiles = call_tile_mask;
-                        while (tiles) {
-                            const int tile = first_tile(tiles);
-                            tiles &= tiles - 1;
-                            call_tile_probability[vertex][tile] *=
+                        for (const int tile : call_tiles) {
+                            call_tile_probability[call_tile_index(vertex, tile)] *=
                                 static_cast<float>(survival);
                         }
                     }
@@ -1636,10 +1563,11 @@ void ExpectedScoreCalculator::calc_stats(
                         }
                         VertexData &state = graph[vertex];
                         const VertexData before = state;
-                        const std::array<float, 37> before_call_tiles =
-                            call_tile_probability.empty()
-                                ? std::array<float, 37>{}
-                                : call_tile_probability[vertex];
+                        std::array<float, 37> before_call_tiles{};
+                        for (const int tile : call_tiles) {
+                            before_call_tiles[tile] =
+                                call_tile_probability[call_tile_index(vertex, tile)];
+                        }
                         for (const CallOption *option : best) {
                             if (option == nullptr) {
                                 continue;
@@ -1659,14 +1587,12 @@ void ExpectedScoreCalculator::calc_stats(
                                 probability * (called.call_prob - before.call_prob);
                             state.call_win_prob += probability * (called.call_win_prob -
                                                                   before.call_win_prob);
-                            std::uint64_t tiles = call_tile_mask;
-                            while (tiles) {
-                                const int tile = first_tile(tiles);
-                                tiles &= tiles - 1;
-                                call_tile_probability[vertex][tile] +=
+                            for (const int tile : call_tiles) {
+                                call_tile_probability[call_tile_index(vertex, tile)] +=
                                     static_cast<float>(
                                         probability *
-                                        (call_tile_probability[option->target][tile] -
+                                        (call_tile_probability[call_tile_index(
+                                             option->target, tile)] -
                                          before_call_tiles[tile]));
                             }
                         }
@@ -1708,8 +1634,11 @@ void ExpectedScoreCalculator::calc_stats(
                     best_exp_score = s2.exp_score;
                     best_call_prob = s2.call_prob;
                     best_call_win_prob = s2.call_win_prob;
-                    if (!call_tile_probability.empty()) {
-                        best_call_tiles = call_tile_probability[edge.source];
+                    if (call_tile_count != 0) {
+                        for (const int tile : call_tiles) {
+                            best_call_tiles[tile] = call_tile_probability[
+                                call_tile_index(edge.source, tile)];
+                        }
                     }
                 }
             }
@@ -1719,8 +1648,11 @@ void ExpectedScoreCalculator::calc_stats(
             s1.exp_score = best_exp_score;
             s1.call_prob = best_call_prob;
             s1.call_win_prob = best_call_win_prob;
-            if (!call_tile_probability.empty()) {
-                call_tile_probability[vertex] = best_call_tiles;
+            if (call_tile_count != 0) {
+                for (const int tile : call_tiles) {
+                    call_tile_probability[call_tile_index(vertex, tile)] =
+                        best_call_tiles[tile];
+                }
             }
         }
 
@@ -1733,7 +1665,7 @@ void ExpectedScoreCalculator::calc_stats(
             stats[i].call_win_prob[t] = root.call_win_prob;
             for (auto &entry : stats[i].call_tile_stats) {
                 entry.probability[t] =
-                    call_tile_probability[root_vertices[i]][entry.tile];
+                    call_tile_probability[call_tile_index(root_vertices[i], entry.tile)];
             }
         }
     }
@@ -1748,405 +1680,369 @@ void ExpectedScoreCalculator::calc_stats(
     }
     active_yaku &= config.yaku_filter;
 
+    std::vector<YakuFlags> roles;
+    std::array<int, Yaku::Length> role_slot{};
+    role_slot.fill(-1);
     while (active_yaku) {
         const int yaku_index = first_tile(active_yaku);
-        const YakuFlags yaku = YakuFlags{1} << yaku_index;
         active_yaku &= active_yaku - 1;
+        role_slot[yaku_index] = static_cast<int>(roles.size());
+        roles.push_back(YakuFlags{1} << yaku_index);
+    }
+    if (roles.empty()) {
+        return;
+    }
 
-        for (auto &stat : stats) {
+    for (auto &stat : stats) {
+        stat.yaku_stats.reserve(roles.size());
+        for (const YakuFlags yaku : roles) {
             stat.yaku_stats.push_back(
                 YakuStat{yaku, std::vector<double>(config.t_max + 1, 0.0),
                          std::vector<double>(config.t_max + 1, 0.0),
                          std::vector<double>(config.t_max + 1, 0.0),
-                         std::vector<double>(config.t_max + 1, 0.0),
-                         std::vector<double>(config.t_max + 1, 0.0),
                          std::vector<double>(config.t_max + 1, 0.0)});
         }
-        const std::size_t output_index = stats.front().yaku_stats.size() - 1;
+    }
 
-        std::vector<double> occurrence(graph.num_vertices(), 0.0);
-        std::vector<double> inclusive(graph.num_vertices(), 0.0);
-        std::vector<double> marginal(graph.num_vertices(), 0.0);
-        std::vector<double> shapley(graph.num_vertices(), 0.0);
-        std::vector<double> called_occurrence(graph.num_vertices(), 0.0);
-        std::vector<double> called_shapley(graph.num_vertices(), 0.0);
-        for (auto &vertex : graph.vertices) {
-            vertex.exp_score = 0.0;
+    struct RoleValue
+    {
+        float occurrence = 0.0F;
+        float shapley = 0.0F;
+        float called_occurrence = 0.0F;
+        float called_shapley = 0.0F;
+    };
+    const std::size_t role_count = roles.size();
+    const auto value_index = [role_count](const Vertex vertex,
+                                          const std::size_t role) {
+        return static_cast<std::size_t>(vertex) * role_count + role;
+    };
+    std::vector<RoleValue> values(graph.num_vertices() * role_count);
+    std::vector<RoleValue> selected(role_count);
+    std::vector<RoleValue> delta(role_count);
+    std::vector<RoleValue> immediate(role_count);
+    std::vector<float> role_turn_tsumo_probability(graph.num_vertices(), 0.0F);
+    std::vector<float> role_turn_win_score(graph.num_vertices(), 0.0F);
+    for (auto &vertex : graph.vertices) {
+        vertex.exp_score = 0.0;
+    }
+
+    const auto load_selected = [&](const DrawEdge &edge, const bool last_turn,
+                                   const bool dynamic_called,
+                                   const double continuation_score) {
+        for (std::size_t role = 0; role < role_count; ++role) {
+            selected[role] = values[value_index(edge.target, role)];
+        }
+        const double edge_score = last_turn ? edge.last_score : edge.score;
+        if (edge_score <= 0.0 || edge_score < continuation_score) {
+            return;
+        }
+        std::fill(selected.begin(), selected.end(), RoleValue{});
+        const std::uint32_t offset =
+            last_turn ? edge.last_contribution_offset : edge.contribution_offset;
+        const std::uint16_t count =
+            last_turn ? edge.last_contribution_count : edge.contribution_count;
+        for (std::uint32_t ci = offset; ci < offset + count; ++ci) {
+            const ContributionData &entry = graph.contributions[ci];
+            const int yaku_index = first_tile(entry.yaku);
+            const int slot = role_slot[yaku_index];
+            if (slot < 0) {
+                continue;
+            }
+            RoleValue &value = selected[static_cast<std::size_t>(slot)];
+            value.occurrence = entry.occurrence;
+            value.shapley = entry.shapley;
+            if (dynamic_called) {
+                value.called_occurrence = entry.occurrence;
+                value.called_shapley = entry.shapley;
+            }
+        }
+    };
+
+    for (int t = config.t_max; t >= config.t_min; --t) {
+        const bool last_turn = config.enable_turn_yaku && t + 1 == LastTurn;
+        struct ExpirySnapshot
+        {
+            Vertex source;
+            Vertex expired;
+            double source_score;
+            double expired_score;
+            int outgoing_weight;
+        };
+        std::vector<ExpirySnapshot> expiry_snapshots;
+        expiry_snapshots.reserve(ippatsu_expiries.size());
+        std::vector<RoleValue> expiry_values(ippatsu_expiries.size() * role_count * 2);
+        for (std::size_t i = 0; i < ippatsu_expiries.size(); ++i) {
+            const auto [source, expired] = ippatsu_expiries[i];
+            int outgoing_weight = 0;
+            const std::size_t vi = static_cast<std::size_t>(source);
+            for (std::uint32_t ei = edge_csr.draw_edge_offsets[vi];
+                 ei < edge_csr.draw_edge_offsets[vi + 1]; ++ei) {
+                outgoing_weight += edge_csr.draw_edges[ei].weight;
+            }
+            expiry_snapshots.push_back(ExpirySnapshot{
+                source, expired, graph[source].exp_score, graph[expired].exp_score,
+                outgoing_weight});
+            for (std::size_t role = 0; role < role_count; ++role) {
+                expiry_values[(i * 2) * role_count + role] =
+                    values[value_index(source, role)];
+                expiry_values[(i * 2 + 1) * role_count + role] =
+                    values[value_index(expired, role)];
+            }
         }
 
-        std::vector<double> turn_tsumo_probability(graph.num_vertices(), 0.0);
-        std::vector<double> turn_win_score(graph.num_vertices(), 0.0);
-        std::vector<double> turn_win_occurrence(graph.num_vertices(), 0.0);
-        std::vector<double> turn_win_inclusive(graph.num_vertices(), 0.0);
-        std::vector<double> turn_win_marginal(graph.num_vertices(), 0.0);
-        std::vector<double> turn_win_shapley(graph.num_vertices(), 0.0);
-        std::vector<double> turn_win_called_occurrence(graph.num_vertices(), 0.0);
-        std::vector<double> turn_win_called_shapley(graph.num_vertices(), 0.0);
-
-        for (int t = config.t_max; t >= config.t_min; --t) {
-            const bool last_turn = config.enable_turn_yaku && t + 1 == LastTurn;
-            struct ContributionSnapshot
-            {
-                Vertex source;
-                double source_score;
-                double source_occurrence;
-                double source_inclusive;
-                double source_marginal;
-                double source_shapley;
-                double source_called_occurrence;
-                double source_called_shapley;
-                double expired_score;
-                double expired_occurrence;
-                double expired_inclusive;
-                double expired_marginal;
-                double expired_shapley;
-                double expired_called_occurrence;
-                double expired_called_shapley;
-                int outgoing_weight;
-            };
-            std::vector<ContributionSnapshot> ippatsu_expiry_snapshot;
-            ippatsu_expiry_snapshot.reserve(ippatsu_expiries.size());
-            for (const auto &[source, expired] : ippatsu_expiries) {
-                int outgoing_weight = 0;
-                const std::size_t vi = static_cast<std::size_t>(source);
+        if (t != config.t_max) {
+            const double denominator = config.sum - t;
+            for (const Vertex vertex : draw_vertices) {
+                VertexData &state = graph[vertex];
+                role_turn_tsumo_probability[vertex] = 0.0F;
+                role_turn_win_score[vertex] = 0.0F;
+                std::fill(delta.begin(), delta.end(), RoleValue{});
+                const double previous_score = state.exp_score;
+                double score_delta = 0.0;
+                int immediate_win_weight = 0;
+                double immediate_win_score = 0.0;
+                const std::size_t vi = static_cast<std::size_t>(vertex);
                 for (std::uint32_t ei = edge_csr.draw_edge_offsets[vi];
                      ei < edge_csr.draw_edge_offsets[vi + 1]; ++ei) {
-                    outgoing_weight += edge_csr.draw_edges[ei].weight;
+                    const DrawEdge &edge = edge_csr.draw_edges[ei];
+                    const double continuation_score = graph[edge.target].exp_score;
+                    const double edge_score = last_turn ? edge.last_score : edge.score;
+                    const double selected_score = std::max(edge_score, continuation_score);
+                    load_selected(edge, last_turn, state.dynamic_called,
+                                  continuation_score);
+                    for (std::size_t role = 0; role < role_count; ++role) {
+                        const RoleValue &before = values[value_index(vertex, role)];
+                        const RoleValue &choice = selected[role];
+                        delta[role].occurrence +=
+                            edge.weight * (choice.occurrence - before.occurrence);
+                        delta[role].shapley +=
+                            edge.weight * (choice.shapley - before.shapley);
+                        delta[role].called_occurrence += edge.weight *
+                            (choice.called_occurrence - before.called_occurrence);
+                        delta[role].called_shapley += edge.weight *
+                            (choice.called_shapley - before.called_shapley);
+                    }
+                    if (edge_score > 0.0) {
+                        immediate_win_weight += edge.weight;
+                        immediate_win_score += edge.weight * selected_score;
+                    }
+                    score_delta += edge.weight * (selected_score - previous_score);
                 }
-                ippatsu_expiry_snapshot.push_back(ContributionSnapshot{
-                    source, graph[source].exp_score, occurrence[source],
-                    inclusive[source], marginal[source], shapley[source],
-                    called_occurrence[source], called_shapley[source],
-                    graph[expired].exp_score, occurrence[expired], inclusive[expired],
-                    marginal[expired], shapley[expired], called_occurrence[expired],
-                    called_shapley[expired], outgoing_weight});
+                state.exp_score = previous_score + score_delta / denominator;
+                for (std::size_t role = 0; role < role_count; ++role) {
+                    RoleValue &value = values[value_index(vertex, role)];
+                    value.occurrence += delta[role].occurrence / denominator;
+                    value.shapley += delta[role].shapley / denominator;
+                    value.called_occurrence +=
+                        delta[role].called_occurrence / denominator;
+                    value.called_shapley += delta[role].called_shapley / denominator;
+                }
+                if (immediate_win_weight > 0) {
+                    role_turn_tsumo_probability[vertex] = static_cast<float>(
+                        static_cast<double>(immediate_win_weight) / denominator);
+                    role_turn_win_score[vertex] = static_cast<float>(
+                        immediate_win_score / immediate_win_weight);
+                }
             }
-            if (t != config.t_max) {
-                for (const Vertex vertex : draw_vertices) {
-                    VertexData &state = graph[vertex];
-                    turn_tsumo_probability[vertex] = 0.0;
-                    turn_win_score[vertex] = 0.0;
-                    turn_win_occurrence[vertex] = 0.0;
-                    turn_win_inclusive[vertex] = 0.0;
-                    turn_win_marginal[vertex] = 0.0;
-                    turn_win_shapley[vertex] = 0.0;
-                    turn_win_called_occurrence[vertex] = 0.0;
-                    turn_win_called_shapley[vertex] = 0.0;
-                    const double previous_score = state.exp_score;
-                    const double previous_occurrence = occurrence[vertex];
-                    const double previous_inclusive = inclusive[vertex];
-                    const double previous_marginal = marginal[vertex];
-                    const double previous_shapley = shapley[vertex];
-                    const double previous_called_occurrence = called_occurrence[vertex];
-                    const double previous_called_shapley = called_shapley[vertex];
-                    double score_delta = 0.0;
-                    double occurrence_delta = 0.0;
-                    double inclusive_delta = 0.0;
-                    double marginal_delta = 0.0;
-                    double shapley_delta = 0.0;
-                    double called_occurrence_delta = 0.0;
-                    double called_shapley_delta = 0.0;
-                    int immediate_win_weight = 0;
-                    double immediate_win_score = 0.0;
-                    double immediate_win_occurrence = 0.0;
-                    double immediate_win_inclusive = 0.0;
-                    double immediate_win_marginal = 0.0;
-                    double immediate_win_shapley = 0.0;
-                    double immediate_win_called_occurrence = 0.0;
-                    double immediate_win_called_shapley = 0.0;
-                    const std::size_t vi = static_cast<std::size_t>(vertex);
-                    for (std::uint32_t ei = edge_csr.draw_edge_offsets[vi];
-                         ei < edge_csr.draw_edge_offsets[vi + 1]; ++ei) {
-                        const DrawEdge &edge = edge_csr.draw_edges[ei];
-                        const double continuation_score = graph[edge.target].exp_score;
-                        double selected_score = continuation_score;
-                        double selected_occurrence = occurrence[edge.target];
-                        double selected_inclusive = inclusive[edge.target];
-                        double selected_marginal = marginal[edge.target];
-                        double selected_shapley = shapley[edge.target];
-                        double selected_called_occurrence =
-                            called_occurrence[edge.target];
-                        double selected_called_shapley = called_shapley[edge.target];
 
-                        const double edge_score =
-                            last_turn ? edge.last_score : edge.score;
-                        const std::uint32_t contribution_offset =
-                            last_turn ? edge.last_contribution_offset
-                                      : edge.contribution_offset;
-                        const std::uint16_t contribution_count =
-                            last_turn ? edge.last_contribution_count
-                                      : edge.contribution_count;
-                        if (edge_score > 0.0) {
-                            selected_score = std::max(edge_score, continuation_score);
-                            if (edge_score >= continuation_score) {
-                                selected_inclusive = 0.0;
-                                selected_occurrence = 0.0;
-                                selected_marginal = 0.0;
-                                selected_shapley = 0.0;
-                                selected_called_occurrence = 0.0;
-                                selected_called_shapley = 0.0;
-                                for (std::uint32_t ci = contribution_offset;
-                                     ci < contribution_offset + contribution_count;
-                                     ++ci) {
-                                    const ContributionData &entry =
-                                        graph.contributions[ci];
-                                    if (entry.yaku == yaku) {
-                                        selected_occurrence = entry.occurrence;
-                                        selected_inclusive = entry.inclusive;
-                                        selected_marginal = entry.marginal;
-                                        selected_shapley = entry.shapley;
-                                        if (state.dynamic_called) {
-                                            selected_called_occurrence =
-                                                entry.occurrence;
-                                            selected_called_shapley = entry.shapley;
-                                        }
-                                        break;
-                                    }
-                                }
-                            }
-                            immediate_win_weight += edge.weight;
-                            immediate_win_score += edge.weight * selected_score;
-                            immediate_win_occurrence +=
-                                edge.weight * selected_occurrence;
-                            immediate_win_inclusive += edge.weight * selected_inclusive;
-                            immediate_win_marginal += edge.weight * selected_marginal;
-                            immediate_win_shapley += edge.weight * selected_shapley;
-                            immediate_win_called_occurrence +=
-                                edge.weight * selected_called_occurrence;
-                            immediate_win_called_shapley +=
-                                edge.weight * selected_called_shapley;
-                        }
-                        score_delta += edge.weight * (selected_score - previous_score);
-                        occurrence_delta +=
-                            edge.weight * (selected_occurrence - previous_occurrence);
-                        inclusive_delta +=
-                            edge.weight * (selected_inclusive - previous_inclusive);
-                        marginal_delta +=
-                            edge.weight * (selected_marginal - previous_marginal);
-                        shapley_delta +=
-                            edge.weight * (selected_shapley - previous_shapley);
-                        called_occurrence_delta +=
-                            edge.weight *
-                            (selected_called_occurrence - previous_called_occurrence);
-                        called_shapley_delta += edge.weight * (selected_called_shapley -
-                                                               previous_called_shapley);
-                    }
-                    const double denominator = config.sum - t;
-                    state.exp_score = previous_score + score_delta / denominator;
-                    occurrence[vertex] =
-                        previous_occurrence + occurrence_delta / denominator;
-                    inclusive[vertex] =
-                        previous_inclusive + inclusive_delta / denominator;
-                    marginal[vertex] = previous_marginal + marginal_delta / denominator;
-                    shapley[vertex] = previous_shapley + shapley_delta / denominator;
-                    called_occurrence[vertex] = previous_called_occurrence +
-                                                called_occurrence_delta / denominator;
-                    called_shapley[vertex] =
-                        previous_called_shapley + called_shapley_delta / denominator;
-                    if (immediate_win_weight > 0) {
-                        turn_tsumo_probability[vertex] =
-                            static_cast<double>(immediate_win_weight) / denominator;
-                        turn_win_score[vertex] =
-                            immediate_win_score / immediate_win_weight;
-                        turn_win_occurrence[vertex] =
-                            immediate_win_occurrence / immediate_win_weight;
-                        turn_win_inclusive[vertex] =
-                            immediate_win_inclusive / immediate_win_weight;
-                        turn_win_marginal[vertex] =
-                            immediate_win_marginal / immediate_win_weight;
-                        turn_win_shapley[vertex] =
-                            immediate_win_shapley / immediate_win_weight;
-                        turn_win_called_occurrence[vertex] =
-                            immediate_win_called_occurrence / immediate_win_weight;
-                        turn_win_called_shapley[vertex] =
-                            immediate_win_called_shapley / immediate_win_weight;
-                    }
+            for (std::size_t i = 0; i < expiry_snapshots.size(); ++i) {
+                const auto &snapshot = expiry_snapshots[i];
+                const int miss_weight =
+                    std::max(0, config.sum - t - snapshot.outgoing_weight);
+                graph[snapshot.source].exp_score +=
+                    miss_weight * (snapshot.expired_score - snapshot.source_score) /
+                    denominator;
+                for (std::size_t role = 0; role < role_count; ++role) {
+                    RoleValue &target = values[value_index(snapshot.source, role)];
+                    const RoleValue &source =
+                        expiry_values[(i * 2) * role_count + role];
+                    const RoleValue &expired =
+                        expiry_values[(i * 2 + 1) * role_count + role];
+                    const float factor = static_cast<float>(miss_weight / denominator);
+                    target.occurrence +=
+                        factor * (expired.occurrence - source.occurrence);
+                    target.shapley += factor * (expired.shapley - source.shapley);
+                    target.called_occurrence += factor *
+                        (expired.called_occurrence - source.called_occurrence);
+                    target.called_shapley += factor *
+                        (expired.called_shapley - source.called_shapley);
                 }
+            }
 
-                const double denominator = config.sum - t;
-                for (const auto &snapshot : ippatsu_expiry_snapshot) {
-                    const int miss_weight =
-                        std::max(0, config.sum - t - snapshot.outgoing_weight);
-                    graph[snapshot.source].exp_score +=
-                        miss_weight * (snapshot.expired_score - snapshot.source_score) /
-                        denominator;
-                    occurrence[snapshot.source] +=
-                        miss_weight *
-                        (snapshot.expired_occurrence - snapshot.source_occurrence) /
-                        denominator;
-                    inclusive[snapshot.source] +=
-                        miss_weight *
-                        (snapshot.expired_inclusive - snapshot.source_inclusive) /
-                        denominator;
-                    marginal[snapshot.source] +=
-                        miss_weight *
-                        (snapshot.expired_marginal - snapshot.source_marginal) /
-                        denominator;
-                    shapley[snapshot.source] +=
-                        miss_weight *
-                        (snapshot.expired_shapley - snapshot.source_shapley) /
-                        denominator;
-                    called_occurrence[snapshot.source] +=
-                        miss_weight *
-                        (snapshot.expired_called_occurrence -
-                         snapshot.source_called_occurrence) /
-                        denominator;
-                    called_shapley[snapshot.source] +=
-                        miss_weight *
-                        (snapshot.expired_called_shapley -
-                         snapshot.source_called_shapley) /
-                        denominator;
+            for (const Vertex vertex : draw_vertices) {
+                const double tsumo_probability =
+                    role_turn_tsumo_probability[vertex];
+                if (tsumo_probability <= 0.0) {
+                    continue;
                 }
-
-                for (const Vertex vertex : draw_vertices) {
-                    const double tsumo_probability = turn_tsumo_probability[vertex];
-                    if (tsumo_probability <= 0.0) {
+                const double total_probability = total_win_probability(tsumo_probability);
+                expand_turn_value(graph[vertex].exp_score, tsumo_probability,
+                                  total_probability, role_turn_win_score[vertex]);
+                std::fill(immediate.begin(), immediate.end(), RoleValue{});
+                int immediate_win_weight = 0;
+                const std::size_t vi = static_cast<std::size_t>(vertex);
+                for (std::uint32_t ei = edge_csr.draw_edge_offsets[vi];
+                     ei < edge_csr.draw_edge_offsets[vi + 1]; ++ei) {
+                    const DrawEdge &edge = edge_csr.draw_edges[ei];
+                    const double edge_score = last_turn ? edge.last_score : edge.score;
+                    if (edge_score <= 0.0) {
                         continue;
                     }
-                    const double total_probability =
-                        total_win_probability(tsumo_probability);
-                    expand_turn_value(graph[vertex].exp_score, tsumo_probability,
-                                      total_probability, turn_win_score[vertex]);
-                    expand_turn_value(occurrence[vertex], tsumo_probability,
-                                      total_probability, turn_win_occurrence[vertex]);
-                    expand_turn_value(inclusive[vertex], tsumo_probability,
-                                      total_probability, turn_win_inclusive[vertex]);
-                    expand_turn_value(marginal[vertex], tsumo_probability,
-                                      total_probability, turn_win_marginal[vertex]);
-                    expand_turn_value(shapley[vertex], tsumo_probability,
-                                      total_probability, turn_win_shapley[vertex]);
-                    expand_turn_value(called_occurrence[vertex], tsumo_probability,
-                                      total_probability,
-                                      turn_win_called_occurrence[vertex]);
-                    expand_turn_value(called_shapley[vertex], tsumo_probability,
-                                      total_probability,
-                                      turn_win_called_shapley[vertex]);
-                }
-
-                if (config.enable_other_win_stop) {
-                    const int hazard_turn = std::min(LastTurn, t + 1);
-                    const int table_turn =
-                        hazard_turn == LastTurn ? LastTurn - 1 : hazard_turn;
-                    const double survival = 1.0 - config.other_win_hazard[table_turn];
-                    for (const Vertex vertex : draw_vertices) {
-                        graph[vertex].exp_score *= survival;
-                        occurrence[vertex] *= survival;
-                        inclusive[vertex] *= survival;
-                        marginal[vertex] *= survival;
-                        shapley[vertex] *= survival;
-                        called_occurrence[vertex] *= survival;
-                        called_shapley[vertex] *= survival;
+                    load_selected(edge, last_turn, graph[vertex].dynamic_called,
+                                  graph[edge.target].exp_score);
+                    immediate_win_weight += edge.weight;
+                    for (std::size_t role = 0; role < role_count; ++role) {
+                        immediate[role].occurrence +=
+                            edge.weight * selected[role].occurrence;
+                        immediate[role].shapley +=
+                            edge.weight * selected[role].shapley;
+                        immediate[role].called_occurrence +=
+                            edge.weight * selected[role].called_occurrence;
+                        immediate[role].called_shapley +=
+                            edge.weight * selected[role].called_shapley;
                     }
                 }
+                for (std::size_t role = 0; role < role_count; ++role) {
+                    RoleValue &value = values[value_index(vertex, role)];
+                    const RoleValue win{
+                        immediate[role].occurrence / immediate_win_weight,
+                        immediate[role].shapley / immediate_win_weight,
+                        immediate[role].called_occurrence / immediate_win_weight,
+                        immediate[role].called_shapley / immediate_win_weight};
+                    const auto expand_float = [&](float &field, const float win_field) {
+                        const double miss =
+                            (field - tsumo_probability * win_field) /
+                            (1.0 - tsumo_probability);
+                        field = static_cast<float>(total_probability * win_field +
+                                                   (1.0 - total_probability) * miss);
+                    };
+                    if (total_probability > tsumo_probability &&
+                        tsumo_probability < 1.0) {
+                        expand_float(value.occurrence, win.occurrence);
+                        expand_float(value.shapley, win.shapley);
+                        expand_float(value.called_occurrence,
+                                     win.called_occurrence);
+                        expand_float(value.called_shapley, win.called_shapley);
+                    }
+                }
+            }
 
-                if (config.enable_calls) {
-                    const auto apply_call_slot = [&](const bool allow_chi) {
-                        for (const Vertex vertex : draw_vertices) {
-                            const auto &options = calls_by_source[vertex];
-                            if (options.empty()) {
+            if (config.enable_other_win_stop) {
+                const int hazard_turn = std::min(LastTurn, t + 1);
+                const int table_turn =
+                    hazard_turn == LastTurn ? LastTurn - 1 : hazard_turn;
+                const float survival =
+                    static_cast<float>(1.0 - config.other_win_hazard[table_turn]);
+                for (const Vertex vertex : draw_vertices) {
+                    graph[vertex].exp_score *= survival;
+                    for (std::size_t role = 0; role < role_count; ++role) {
+                        RoleValue &value = values[value_index(vertex, role)];
+                        value.occurrence *= survival;
+                        value.shapley *= survival;
+                        value.called_occurrence *= survival;
+                        value.called_shapley *= survival;
+                    }
+                }
+            }
+
+            if (config.enable_calls) {
+                const auto apply_call_slot = [&](const bool allow_chi) {
+                    for (const Vertex vertex : draw_vertices) {
+                        const auto &options = calls_by_source[vertex];
+                        if (options.empty()) {
+                            continue;
+                        }
+                        std::array<const CallOption *, 37> best{};
+                        for (const CallOption *option : options) {
+                            if (option->chi && !allow_chi) {
                                 continue;
                             }
-                            std::array<const CallOption *, 37> best{};
-                            for (const CallOption *option : options) {
-                                if (option->chi && !allow_chi) {
-                                    continue;
-                                }
-                                const CallOption *&selected = best[option->tile];
-                                if (selected == nullptr ||
-                                    graph[option->target].exp_score >
-                                        graph[selected->target].exp_score) {
-                                    selected = option;
-                                }
-                            }
-                            const double before_score = graph[vertex].exp_score;
-                            const double before_occurrence = occurrence[vertex];
-                            const double before_inclusive = inclusive[vertex];
-                            const double before_marginal = marginal[vertex];
-                            const double before_shapley = shapley[vertex];
-                            const double before_called_occurrence =
-                                called_occurrence[vertex];
-                            const double before_called_shapley = called_shapley[vertex];
-                            for (const CallOption *option : best) {
-                                if (option == nullptr ||
-                                    graph[option->target].exp_score <= before_score) {
-                                    continue;
-                                }
-                                const double probability = option->weight / denominator;
-                                const Vertex target = option->target;
-                                graph[vertex].exp_score +=
-                                    probability *
-                                    (graph[target].exp_score - before_score);
-                                occurrence[vertex] +=
-                                    probability *
-                                    (occurrence[target] - before_occurrence);
-                                inclusive[vertex] += probability * (inclusive[target] -
-                                                                    before_inclusive);
-                                marginal[vertex] +=
-                                    probability * (marginal[target] - before_marginal);
-                                shapley[vertex] +=
-                                    probability * (shapley[target] - before_shapley);
-                                called_occurrence[vertex] +=
-                                    probability * (called_occurrence[target] -
-                                                   before_called_occurrence);
-                                called_shapley[vertex] +=
-                                    probability *
-                                    (called_shapley[target] - before_called_shapley);
+                            const CallOption *&choice = best[option->tile];
+                            if (choice == nullptr || graph[option->target].exp_score >
+                                                         graph[choice->target].exp_score) {
+                                choice = option;
                             }
                         }
-                    };
-                    apply_call_slot(true);
-                    apply_call_slot(false);
-                    apply_call_slot(false);
-                }
-            }
-
-            for (const Vertex vertex : discard_vertices) {
-                double best_score = 0.0;
-                double best_occurrence = 0.0;
-                double best_inclusive = 0.0;
-                double best_marginal = 0.0;
-                double best_shapley = 0.0;
-                double best_called_occurrence = 0.0;
-                double best_called_shapley = 0.0;
-                const std::size_t vi = static_cast<std::size_t>(vertex);
-                for (std::uint32_t ei = edge_csr.selection_edge_offsets[vi];
-                     ei < edge_csr.selection_edge_offsets[vi + 1]; ++ei) {
-                    const Vertex source = edge_csr.selection_edges[ei].source;
-                    if (graph[source].exp_score > best_score) {
-                        best_score = graph[source].exp_score;
-                        best_occurrence = occurrence[source];
-                        best_inclusive = inclusive[source];
-                        best_marginal = marginal[source];
-                        best_shapley = shapley[source];
-                        best_called_occurrence = called_occurrence[source];
-                        best_called_shapley = called_shapley[source];
+                        const double before_score = graph[vertex].exp_score;
+                        for (std::size_t role = 0; role < role_count; ++role) {
+                            selected[role] = values[value_index(vertex, role)];
+                        }
+                        for (const CallOption *option : best) {
+                            if (option == nullptr ||
+                                graph[option->target].exp_score <= before_score) {
+                                continue;
+                            }
+                            const float probability =
+                                static_cast<float>(option->weight / denominator);
+                            graph[vertex].exp_score += probability *
+                                (graph[option->target].exp_score - before_score);
+                            for (std::size_t role = 0; role < role_count; ++role) {
+                                RoleValue &value = values[value_index(vertex, role)];
+                                const RoleValue &before = selected[role];
+                                const RoleValue &after =
+                                    values[value_index(option->target, role)];
+                                value.occurrence += probability *
+                                    (after.occurrence - before.occurrence);
+                                value.shapley += probability *
+                                    (after.shapley - before.shapley);
+                                value.called_occurrence += probability *
+                                    (after.called_occurrence -
+                                     before.called_occurrence);
+                                value.called_shapley += probability *
+                                    (after.called_shapley - before.called_shapley);
+                            }
+                        }
                     }
-                }
-                graph[vertex].exp_score = best_score;
-                occurrence[vertex] = best_occurrence;
-                inclusive[vertex] = best_inclusive;
-                marginal[vertex] = best_marginal;
-                shapley[vertex] = best_shapley;
-                called_occurrence[vertex] = best_called_occurrence;
-                called_shapley[vertex] = best_called_shapley;
-            }
-
-            for (std::size_t i = 0; i < root_vertices.size(); ++i) {
-                stats[i].yaku_stats[output_index].occurrence_prob[t] =
-                    occurrence[root_vertices[i]];
-                stats[i].yaku_stats[output_index].inclusive_score[t] =
-                    inclusive[root_vertices[i]];
-                stats[i].yaku_stats[output_index].marginal_score[t] =
-                    marginal[root_vertices[i]];
-                stats[i].yaku_stats[output_index].shapley_score[t] =
-                    shapley[root_vertices[i]];
-                stats[i].yaku_stats[output_index].called_occurrence_prob[t] =
-                    called_occurrence[root_vertices[i]];
-                stats[i].yaku_stats[output_index].called_shapley_score[t] =
-                    called_shapley[root_vertices[i]];
+                };
+                apply_call_slot(true);
+                apply_call_slot(false);
+                apply_call_slot(false);
             }
         }
+
+        for (const Vertex vertex : discard_vertices) {
+            double best_score = 0.0;
+            Vertex best_source = NoVertex;
+            const std::size_t vi = static_cast<std::size_t>(vertex);
+            for (std::uint32_t ei = edge_csr.selection_edge_offsets[vi];
+                 ei < edge_csr.selection_edge_offsets[vi + 1]; ++ei) {
+                const Vertex source = edge_csr.selection_edges[ei].source;
+                if (graph[source].exp_score > best_score) {
+                    best_score = graph[source].exp_score;
+                    best_source = source;
+                }
+            }
+            graph[vertex].exp_score = best_score;
+            if (best_source != NoVertex) {
+                for (std::size_t role = 0; role < role_count; ++role) {
+                    values[value_index(vertex, role)] =
+                        values[value_index(best_source, role)];
+                }
+            }
+        }
+
+        for (std::size_t i = 0; i < root_vertices.size(); ++i) {
+            double shapley_sum = 0.0;
+            std::size_t correction_role = 0;
+            double largest = -1.0;
+            for (std::size_t role = 0; role < role_count; ++role) {
+                const RoleValue &value = values[value_index(root_vertices[i], role)];
+                YakuStat &output = stats[i].yaku_stats[role];
+                output.occurrence_prob[t] = value.occurrence;
+                output.shapley_score[t] = value.shapley;
+                output.called_occurrence_prob[t] = value.called_occurrence;
+                output.called_shapley_score[t] = value.called_shapley;
+                shapley_sum += value.shapley;
+                if (std::abs(value.shapley) > largest) {
+                    largest = std::abs(value.shapley);
+                    correction_role = role;
+                }
+            }
+            stats[i].yaku_stats[correction_role].shapley_score[t] +=
+                graph[root_vertices[i]].exp_score - shapley_sum;
+        }
     }
+    graph.release_contributions();
 }
 
 std::tuple<std::vector<ExpectedScoreCalculator::Stat>, int>
@@ -2171,7 +2067,9 @@ void ExpectedScoreCalculator::calc_draw_hand(
     stats.emplace_back(Stat{Tile::Null, {}, {}, {}, {}, {}, 0, {}});
 
     // 確率、期待値を計算する。
+    graph_builder.release_caches();
     const EdgeCsr edge_csr = build_edge_csr(graph_builder.graph());
+    graph_builder.graph().release_adjacency();
     calc_stats(config, graph_builder.graph(), graph_builder.draw_vertices(),
                graph_builder.discard_vertices(), graph_builder.ippatsu_expiries(),
                graph_builder.call_options(), edge_csr, {vertex}, stats);
@@ -2233,7 +2131,9 @@ void ExpectedScoreCalculator::calc_discard_hand(
         }
     }
 
+    graph_builder.release_caches();
     const EdgeCsr edge_csr = build_edge_csr(graph_builder.graph());
+    graph_builder.graph().release_adjacency();
     calc_stats(config, graph_builder.graph(), graph_builder.draw_vertices(),
                graph_builder.discard_vertices(), graph_builder.ippatsu_expiries(),
                graph_builder.call_options(), edge_csr, root_vertices, stats);
@@ -2262,7 +2162,6 @@ ExpectedScoreCalculator::YakuStat &ensure_yaku_stat(ExpectedScoreCalculator::Sta
     }
     stat.yaku_stats.push_back(ExpectedScoreCalculator::YakuStat{
         yaku, std::vector<double>(size, 0.0), std::vector<double>(size, 0.0),
-        std::vector<double>(size, 0.0), std::vector<double>(size, 0.0),
         std::vector<double>(size, 0.0), std::vector<double>(size, 0.0)});
     return stat.yaku_stats.back();
 }
@@ -2318,12 +2217,6 @@ void merge_turn_yaku_overlay(std::vector<ExpectedScoreCalculator::Stat> &base,
             const auto *off = find_yaku_stat(*off_it, yaku);
 
             for (std::size_t i = 0; i < value_count; ++i) {
-                target.inclusive_score[i] +=
-                    at_or_zero(on ? &on->inclusive_score : nullptr, i) -
-                    at_or_zero(off ? &off->inclusive_score : nullptr, i);
-                target.marginal_score[i] +=
-                    at_or_zero(on ? &on->marginal_score : nullptr, i) -
-                    at_or_zero(off ? &off->marginal_score : nullptr, i);
                 target.shapley_score[i] +=
                     at_or_zero(on ? &on->shapley_score : nullptr, i) -
                     at_or_zero(off ? &off->shapley_score : nullptr, i);
@@ -2340,6 +2233,23 @@ void merge_turn_yaku_overlay(std::vector<ExpectedScoreCalculator::Stat> &base,
         }
         std::sort(base_stat.yaku_stats.begin(), base_stat.yaku_stats.end(),
                   [](const auto &lhs, const auto &rhs) { return lhs.yaku < rhs.yaku; });
+
+        for (std::size_t i = 0; i < value_count; ++i) {
+            double sum = 0.0;
+            auto correction = base_stat.yaku_stats.begin();
+            for (auto it = base_stat.yaku_stats.begin();
+                 it != base_stat.yaku_stats.end(); ++it) {
+                sum += it->shapley_score[i];
+                if (correction == base_stat.yaku_stats.end() ||
+                    std::abs(it->shapley_score[i]) >
+                        std::abs(correction->shapley_score[i])) {
+                    correction = it;
+                }
+            }
+            if (correction != base_stat.yaku_stats.end()) {
+                correction->shapley_score[i] += base_stat.exp_score[i] - sum;
+            }
+        }
     }
 }
 } // namespace
