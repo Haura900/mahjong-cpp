@@ -195,14 +195,6 @@
         "enable_calls": {
           "type": "boolean"
         },
-        "enable_probability_pruning": {
-          "type": "boolean"
-        },
-        "probability_prune_threshold": {
-          "type": "number",
-          "exclusiveMinimum": 0,
-          "maximum": 1
-        },
         "enable_turn_yaku": {
           "type": "boolean"
         },

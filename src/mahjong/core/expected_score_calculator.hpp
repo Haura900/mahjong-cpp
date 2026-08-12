@@ -47,12 +47,8 @@ class ExpectedScoreCalculator
         bool auto_disable_deep_search = true;
         /* score closed tenpai continuations as riichi */
         bool enable_riichi = true;
-        /* include optimal yakuhai-pon transitions from opponent discards */
+        /* include one shanten-improving call; first-call ryanmen chi is excluded */
         bool enable_calls = false;
-        /* omit graph states whose estimated reach probability is negligible */
-        bool enable_probability_pruning = false;
-        /* Reach-probability cutoff used only when pruning is enabled. */
-        double probability_prune_threshold = 0.0001;
         /* include ippatsu, haitei, and houtei using turn-aware DP states */
         bool enable_turn_yaku = false;
         /* calculate value */

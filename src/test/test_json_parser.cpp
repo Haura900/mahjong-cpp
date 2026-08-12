@@ -410,10 +410,6 @@ TEST_CASE("deserialize_request maps validated JSON to Request")
                        request.AddMember("calc_stats", true, allocator);
                        request.AddMember("enable_riichi", false, allocator);
                        request.AddMember("enable_calls", true, allocator);
-                       request.AddMember("enable_probability_pruning", true,
-                                         allocator);
-                       request.AddMember("probability_prune_threshold", 0.0002,
-                                         allocator);
                        request.AddMember("enable_turn_yaku", true, allocator);
                        request.AddMember("auto_disable_deep_search", false, allocator);
                        request.AddMember("ron_rate", 0.7, allocator);
@@ -441,8 +437,6 @@ TEST_CASE("deserialize_request maps validated JSON to Request")
         CHECK(req.config.calc_stats);
         CHECK_FALSE(req.config.enable_riichi);
         CHECK(req.config.enable_calls);
-        CHECK(req.config.enable_probability_pruning);
-        CHECK(req.config.probability_prune_threshold == Approx(0.0002));
         CHECK(req.config.enable_turn_yaku);
         CHECK_FALSE(req.config.auto_disable_deep_search);
         CHECK(req.calc_stats_explicit);
@@ -716,8 +710,6 @@ TEST_CASE("build_success_response serializes optional yaku contributions")
     result.config.calc_shapley_stats = true;
     result.config.enable_turn_yaku = true;
     result.config.enable_calls = true;
-    result.config.enable_probability_pruning = true;
-    result.config.probability_prune_threshold = 0.0002;
     result.config.yaku_filter = Yaku::Pinfu | Yaku::Tanyao;
     result.stats[0].yaku_stats = {
         {Yaku::Pinfu,
@@ -739,9 +731,6 @@ TEST_CASE("build_success_response serializes optional yaku contributions")
     REQUIRE(doc["config"]["calc_shapley_stats"].GetBool());
     REQUIRE(doc["config"]["enable_turn_yaku"].GetBool());
     REQUIRE(doc["config"]["enable_calls"].GetBool());
-    REQUIRE(doc["config"]["enable_probability_pruning"].GetBool());
-    REQUIRE(doc["config"]["probability_prune_threshold"].GetDouble() ==
-            Approx(0.0002));
     REQUIRE(doc["stats"][0]["yaku_stats"].Size() == 1);
     REQUIRE(doc["stats"][0]["yaku_stats"][0]["yaku"].GetUint64() == Yaku::Pinfu);
     REQUIRE(to_double_vector(doc["stats"][0]["yaku_stats"][0]["occurrence_prob"]) ==

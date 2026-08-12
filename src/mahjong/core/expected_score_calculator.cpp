@@ -863,6 +863,8 @@ class ExpectedScoreCalculator::GraphBuilder
         , wall_counts_(wall_counts)
         , hand_org_(hand_org)
         , shanten_org_(shanten_org)
+        , initial_meld_count_(player.num_melds())
+        , initially_closed_(player.is_closed())
         , hand_key_(hand_counts, NoRiichi, config.state_tag)
         , hand_mask_(nonzero_mask(hand_counts))
         , wall_mask_(nonzero_mask(wall_counts))
@@ -942,6 +944,8 @@ class ExpectedScoreCalculator::GraphBuilder
     SeparatedCount &wall_counts_;
     const SeparatedCount &hand_org_;
     const int shanten_org_;
+    const int initial_meld_count_;
+    const bool initially_closed_;
     CacheKey hand_key_;
     std::uint64_t hand_mask_;
     std::uint64_t wall_mask_;
@@ -955,9 +959,10 @@ class ExpectedScoreCalculator::GraphBuilder
     std::vector<CallOption> call_options_;
     Vertex win_terminal_ = NoVertex;
 
-    void build_call_options(Vertex source);
+    void build_call_options(Vertex source, int source_shanten);
     void add_call_option(Vertex source, int called_tile, int meld_type,
-                         const std::vector<int> &own_tiles, bool chi);
+                         const std::vector<int> &own_tiles, bool chi,
+                         int source_shanten);
 
     Vertex win_terminal()
     {
@@ -970,8 +975,22 @@ class ExpectedScoreCalculator::GraphBuilder
 
 void ExpectedScoreCalculator::GraphBuilder::add_call_option(
     const Vertex source, const int called_tile, const int meld_type,
-    const std::vector<int> &own_tiles, const bool chi)
+    const std::vector<int> &own_tiles, const bool chi, const int source_shanten)
 {
+    if (chi && initially_closed_) {
+        const int called = Tile::to_normal(called_tile);
+        int sequence_start = called;
+        for (const int tile : own_tiles) {
+            sequence_start = std::min(sequence_start, Tile::to_normal(tile));
+        }
+        const bool ryanmen =
+            (called == sequence_start && sequence_start % 9 != 6) ||
+            (called == sequence_start + 2 && sequence_start % 9 != 0);
+        if (ryanmen) {
+            return;
+        }
+    }
+
     const int weight = wall_counts_[called_tile];
     if (weight <= 0) {
         return;
@@ -995,9 +1014,15 @@ void ExpectedScoreCalculator::GraphBuilder::add_call_option(
     hand_mask_ = nonzero_mask(hand_counts_);
     wall_mask_ = nonzero_mask(wall_counts_);
 
-    const Vertex target = discard_node(NoRiichi);
-    call_options_.push_back(
-        CallOption{source, target, called_tile, weight, chi});
+    const auto [post_call_type, post_call_shanten, post_call_discards] =
+        UnnecessaryTileCalculator::calc(player_.hand, player_.num_melds(),
+                                        config_.shanten_type,
+                                        table_config_.game_mode);
+    if (post_call_shanten < source_shanten) {
+        const Vertex target = discard_node(NoRiichi);
+        call_options_.push_back(
+            CallOption{source, target, called_tile, weight, chi});
+    }
 
     player_.melds.pop_back();
     ++wall_counts_[called_tile];
@@ -1014,19 +1039,18 @@ void ExpectedScoreCalculator::GraphBuilder::add_call_option(
     wall_mask_ = nonzero_mask(wall_counts_);
 }
 
-void ExpectedScoreCalculator::GraphBuilder::build_call_options(const Vertex source)
+void ExpectedScoreCalculator::GraphBuilder::build_call_options(
+    const Vertex source, const int source_shanten)
 {
-    if (!config_.enable_calls || player_.num_melds() >= 4) {
+    if (!config_.enable_calls || player_.num_melds() >= 4 ||
+        player_.num_melds() > initial_meld_count_) {
         return;
     }
 
-    const auto concrete_tiles = [this](const int normal) {
+    const auto concrete_tile_types = [this](const int normal) {
         std::vector<int> tiles;
         for (int tile = 0; tile < 37; ++tile) {
-            if (Tile::to_normal(tile) != normal) {
-                continue;
-            }
-            for (int count = 0; count < hand_counts_[tile]; ++count) {
+            if (Tile::to_normal(tile) == normal && hand_counts_[tile] > 0) {
                 tiles.push_back(tile);
             }
         }
@@ -1039,22 +1063,43 @@ void ExpectedScoreCalculator::GraphBuilder::build_call_options(const Vertex sour
         }
         const int called = Tile::to_normal(called_tile);
 
-        const bool yakuhai =
-            called == Tile::WhiteDragon || called == Tile::GreenDragon ||
-            called == Tile::RedDragon || called == player_.seat_wind ||
-            called == round_state_.round_wind;
-        if (!yakuhai) {
-            continue;
-        }
-
-        const auto same = concrete_tiles(called);
+        const auto same = concrete_tile_types(called);
         for (std::size_t i = 0; i < same.size(); ++i) {
-            for (std::size_t j = i + 1; j < same.size(); ++j) {
+            for (std::size_t j = i; j < same.size(); ++j) {
+                if (i == j && hand_counts_[same[i]] < 2) {
+                    continue;
+                }
                 add_call_option(source, called_tile, MeldType::Pon,
-                                {same[i], same[j]}, false);
+                                {same[i], same[j]}, false, source_shanten);
             }
         }
 
+        if (called >= Tile::Manzu1 && called <= Tile::Souzu9) {
+            const int suit_start = called / 9 * 9;
+            const int rank = called - suit_start;
+            for (int sequence_start = rank - 2; sequence_start <= rank;
+                 ++sequence_start) {
+                if (sequence_start < 0 || sequence_start > 6) {
+                    continue;
+                }
+                std::array<int, 2> needed{};
+                int count = 0;
+                for (int offset = 0; offset < 3; ++offset) {
+                    const int normal = suit_start + sequence_start + offset;
+                    if (normal != called) {
+                        needed[count++] = normal;
+                    }
+                }
+                const auto first = concrete_tile_types(needed[0]);
+                const auto second = concrete_tile_types(needed[1]);
+                for (const int a : first) {
+                    for (const int b : second) {
+                        add_call_option(source, called_tile, MeldType::Chi,
+                                        {a, b}, true, source_shanten);
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -1083,7 +1128,7 @@ ExpectedScoreCalculator::GraphBuilder::draw_node(const std::uint8_t riichi_state
     draw_vertices_.push_back(vertex);
 
     if (riichi_state == NoRiichi) {
-        build_call_options(vertex);
+        build_call_options(vertex, shanten);
     }
 
     // The upstream graph omits non-effective draws as self-loops. That is valid for
@@ -1332,67 +1377,6 @@ void ExpectedScoreCalculator::calc_stats(const Config &config, Graph &graph,
     for (const auto &option : call_options) {
         calls_by_source[option.source].push_back(&option);
     }
-    std::vector<std::uint8_t> active(graph.num_vertices(), 1);
-    if (config.enable_probability_pruning) {
-        std::vector<double> reach(graph.num_vertices(), 0.0);
-        for (const Vertex root : root_vertices) {
-            reach[root] = 1.0;
-        }
-        const double denominator =
-            static_cast<double>(std::max(1, config.sum - config.t_max));
-        // A full turn crosses both a draw and a discard vertex.  Call targets
-        // also land on the post-call draw-state side, so allow one extra pair.
-        for (int step = 0; step < 2 * MaxTurn + 2; ++step) {
-            std::vector<double> next = reach;
-            for (const Vertex vertex : draw_vertices) {
-                const double source_probability = reach[vertex];
-                if (source_probability == 0.0) {
-                    continue;
-                }
-                const std::size_t vi = static_cast<std::size_t>(vertex);
-                for (std::uint32_t ei = edge_csr.draw_edge_offsets[vi];
-                     ei < edge_csr.draw_edge_offsets[vi + 1]; ++ei) {
-                    const DrawEdge &edge = edge_csr.draw_edges[ei];
-                    next[edge.target] = std::max(
-                        next[edge.target],
-                        source_probability * edge.weight / denominator);
-                }
-                for (const CallOption *option : calls_by_source[vertex]) {
-                    const double one_discard =
-                        std::min(1.0, option->weight / denominator);
-                    const double opportunity =
-                        option->chi ? one_discard
-                                    : 1.0 - std::pow(1.0 - one_discard, 3.0);
-                    next[option->target] = std::max(
-                        next[option->target], source_probability * opportunity);
-                }
-            }
-            for (const Vertex vertex : discard_vertices) {
-                const double source_probability = reach[vertex];
-                if (source_probability == 0.0) {
-                    continue;
-                }
-                const std::size_t vi = static_cast<std::size_t>(vertex);
-                for (std::uint32_t ei = edge_csr.selection_edge_offsets[vi];
-                     ei < edge_csr.selection_edge_offsets[vi + 1]; ++ei) {
-                    const Vertex target = edge_csr.selection_edges[ei].source;
-                    next[target] = std::max(next[target], source_probability);
-                }
-            }
-            // A non-winning first draw after riichi is represented outside the
-            // explicit edge list as an ippatsu-expiry transition.
-            for (const auto &[source, expired] : ippatsu_expiries) {
-                next[expired] = std::max(next[expired], reach[source]);
-            }
-            reach.swap(next);
-        }
-        for (std::size_t i = 0; i < active.size(); ++i) {
-            active[i] = reach[i] >= config.probability_prune_threshold;
-        }
-        for (const Vertex root : root_vertices) {
-            active[root] = 1;
-        }
-    }
     for (auto &stat : stats) {
         stat.tenpai_prob.assign(config.t_max + 1, 0.0);
         stat.win_prob.assign(config.t_max + 1, 0.0);
@@ -1414,9 +1398,6 @@ void ExpectedScoreCalculator::calc_stats(const Config &config, Graph &graph,
         std::vector<IppatsuStateSnapshot> ippatsu_expiry_snapshot;
         ippatsu_expiry_snapshot.reserve(ippatsu_expiries.size());
         for (const auto &[source, expired] : ippatsu_expiries) {
-            if (!active[source]) {
-                continue;
-            }
             int outgoing_weight = 0;
             const std::size_t vi = static_cast<std::size_t>(source);
             for (std::uint32_t ei = edge_csr.draw_edge_offsets[vi];
@@ -1431,11 +1412,8 @@ void ExpectedScoreCalculator::calc_stats(const Config &config, Graph &graph,
 #pragma omp parallel for schedule(static)
 #endif
         for (std::int64_t i = 0; i < static_cast<std::int64_t>(draw_vertices.size());
-             ++i) {
+            ++i) {
             const Vertex vertex = draw_vertices[i];
-            if (!active[vertex]) {
-                continue;
-            }
             VertexData &s1 = graph[vertex];
             turn_tsumo_probability[vertex] = 0.0;
             turn_win_score[vertex] = 0.0;
@@ -1459,11 +1437,8 @@ void ExpectedScoreCalculator::calc_stats(const Config &config, Graph &graph,
             int immediate_win_weight = 0;
             double immediate_win_score = 0.0;
             for (std::uint32_t ei = edge_csr.draw_edge_offsets[vi];
-                 ei < edge_csr.draw_edge_offsets[vi + 1]; ++ei) {
+                ei < edge_csr.draw_edge_offsets[vi + 1]; ++ei) {
                 const DrawEdge &edge = edge_csr.draw_edges[ei];
-                if (!active[edge.target]) {
-                    continue;
-                }
                 const VertexData &s2 = graph[edge.target];
 
                 double tenpai_prob = s2.tenpai_prob;
@@ -1528,9 +1503,6 @@ void ExpectedScoreCalculator::calc_stats(const Config &config, Graph &graph,
             }
 
             for (const Vertex vertex : draw_vertices) {
-                if (!active[vertex]) {
-                    continue;
-                }
                 const double tsumo_probability = turn_tsumo_probability[vertex];
                 if (tsumo_probability <= 0.0) {
                     continue;
@@ -1550,9 +1522,6 @@ void ExpectedScoreCalculator::calc_stats(const Config &config, Graph &graph,
                                                                : hazard_turn;
                 const double survival = 1.0 - config.other_win_hazard[table_turn];
                 for (const Vertex vertex : draw_vertices) {
-                    if (!active[vertex]) {
-                        continue;
-                    }
                     if (!graph[vertex].is_tenpai) {
                         graph[vertex].tenpai_prob *= survival;
                     }
@@ -1567,18 +1536,12 @@ void ExpectedScoreCalculator::calc_stats(const Config &config, Graph &graph,
             if (config.enable_calls) {
                 const auto apply_call_slot = [&](const bool allow_chi) {
                     for (const Vertex vertex : draw_vertices) {
-                        if (!active[vertex]) {
-                            continue;
-                        }
                         const auto &options = calls_by_source[vertex];
                         if (options.empty()) {
                             continue;
                         }
                         std::array<const CallOption *, 37> best{};
                         for (const CallOption *option : options) {
-                            if (!active[option->target]) {
-                                continue;
-                            }
                             if (option->chi && !allow_chi) {
                                 continue;
                             }
@@ -1610,8 +1573,8 @@ void ExpectedScoreCalculator::calc_stats(const Config &config, Graph &graph,
                         }
                     }
                 };
-                // Backward induction over the three opponent discards.  The
-                // current bounded call model only generates yakuhai pon options.
+                // Backward induction over the three opponent discards. Chi is
+                // available only from kamicha; pon is available from all seats.
                 apply_call_slot(true);
                 apply_call_slot(false);
                 apply_call_slot(false);
@@ -1623,11 +1586,8 @@ void ExpectedScoreCalculator::calc_stats(const Config &config, Graph &graph,
 #pragma omp parallel for schedule(static)
 #endif
         for (std::int64_t i = 0; i < static_cast<std::int64_t>(discard_vertices.size());
-             ++i) {
+            ++i) {
             const Vertex vertex = discard_vertices[i];
-            if (!active[vertex]) {
-                continue;
-            }
             VertexData &s1 = graph[vertex];
             double best_tenpai_prob = 0.0;
             double best_win_prob = 0.0;
@@ -1639,9 +1599,6 @@ void ExpectedScoreCalculator::calc_stats(const Config &config, Graph &graph,
                  ei < edge_csr.selection_edge_offsets[vi + 1]; ++ei) {
                 const SelectionEdge &edge = edge_csr.selection_edges[ei];
                 const VertexData &s2 = graph[edge.source];
-                if (!active[edge.source]) {
-                    continue;
-                }
                 if (s2.tenpai_prob > best_tenpai_prob) {
                     best_tenpai_prob = s2.tenpai_prob;
                 }
@@ -1672,27 +1629,8 @@ void ExpectedScoreCalculator::calc_stats(const Config &config, Graph &graph,
     }
 
     YakuFlags active_yaku = Yaku::None;
-    for (const Vertex vertex : draw_vertices) {
-        if (!active[vertex]) {
-            continue;
-        }
-        const std::size_t vi = static_cast<std::size_t>(vertex);
-        for (std::uint32_t ei = edge_csr.draw_edge_offsets[vi];
-             ei < edge_csr.draw_edge_offsets[vi + 1]; ++ei) {
-            const DrawEdge &edge = edge_csr.draw_edges[ei];
-            if (!active[edge.target]) {
-                continue;
-            }
-            for (std::uint32_t ci = edge.contribution_offset;
-                 ci < edge.contribution_offset + edge.contribution_count; ++ci) {
-                active_yaku |= graph.contributions[ci].yaku;
-            }
-            for (std::uint32_t ci = edge.last_contribution_offset;
-                 ci < edge.last_contribution_offset + edge.last_contribution_count;
-                 ++ci) {
-                active_yaku |= graph.contributions[ci].yaku;
-            }
-        }
+    for (const auto &entry : graph.contributions) {
+        active_yaku |= entry.yaku;
     }
     active_yaku &= config.yaku_filter;
 
@@ -1714,10 +1652,8 @@ void ExpectedScoreCalculator::calc_stats(const Config &config, Graph &graph,
         std::vector<double> inclusive(graph.num_vertices(), 0.0);
         std::vector<double> marginal(graph.num_vertices(), 0.0);
         std::vector<double> shapley(graph.num_vertices(), 0.0);
-        for (std::size_t i = 0; i < graph.vertices.size(); ++i) {
-            if (active[i]) {
-                graph.vertices[i].exp_score = 0.0;
-            }
+        for (auto &vertex : graph.vertices) {
+            vertex.exp_score = 0.0;
         }
 
         std::vector<double> turn_tsumo_probability(graph.num_vertices(), 0.0);
@@ -1747,9 +1683,6 @@ void ExpectedScoreCalculator::calc_stats(const Config &config, Graph &graph,
             std::vector<ContributionSnapshot> ippatsu_expiry_snapshot;
             ippatsu_expiry_snapshot.reserve(ippatsu_expiries.size());
             for (const auto &[source, expired] : ippatsu_expiries) {
-                if (!active[source]) {
-                    continue;
-                }
                 int outgoing_weight = 0;
                 const std::size_t vi = static_cast<std::size_t>(source);
                 for (std::uint32_t ei = edge_csr.draw_edge_offsets[vi];
@@ -1764,9 +1697,6 @@ void ExpectedScoreCalculator::calc_stats(const Config &config, Graph &graph,
             }
             if (t != config.t_max) {
                 for (const Vertex vertex : draw_vertices) {
-                    if (!active[vertex]) {
-                        continue;
-                    }
                     VertexData &state = graph[vertex];
                     turn_tsumo_probability[vertex] = 0.0;
                     turn_win_score[vertex] = 0.0;
@@ -1792,11 +1722,8 @@ void ExpectedScoreCalculator::calc_stats(const Config &config, Graph &graph,
                     double immediate_win_shapley = 0.0;
                     const std::size_t vi = static_cast<std::size_t>(vertex);
                     for (std::uint32_t ei = edge_csr.draw_edge_offsets[vi];
-                         ei < edge_csr.draw_edge_offsets[vi + 1]; ++ei) {
+                        ei < edge_csr.draw_edge_offsets[vi + 1]; ++ei) {
                         const DrawEdge &edge = edge_csr.draw_edges[ei];
-                        if (!active[edge.target]) {
-                            continue;
-                        }
                         const double continuation_score = graph[edge.target].exp_score;
                         double selected_score = continuation_score;
                         double selected_occurrence = occurrence[edge.target];
@@ -1904,9 +1831,6 @@ void ExpectedScoreCalculator::calc_stats(const Config &config, Graph &graph,
                 }
 
                 for (const Vertex vertex : draw_vertices) {
-                    if (!active[vertex]) {
-                        continue;
-                    }
                     const double tsumo_probability = turn_tsumo_probability[vertex];
                     if (tsumo_probability <= 0.0) {
                         continue;
@@ -1936,9 +1860,6 @@ void ExpectedScoreCalculator::calc_stats(const Config &config, Graph &graph,
                     const double survival =
                         1.0 - config.other_win_hazard[table_turn];
                     for (const Vertex vertex : draw_vertices) {
-                        if (!active[vertex]) {
-                            continue;
-                        }
                         graph[vertex].exp_score *= survival;
                         occurrence[vertex] *= survival;
                         inclusive[vertex] *= survival;
@@ -1950,18 +1871,12 @@ void ExpectedScoreCalculator::calc_stats(const Config &config, Graph &graph,
                 if (config.enable_calls) {
                     const auto apply_call_slot = [&](const bool allow_chi) {
                         for (const Vertex vertex : draw_vertices) {
-                            if (!active[vertex]) {
-                                continue;
-                            }
                             const auto &options = calls_by_source[vertex];
                             if (options.empty()) {
                                 continue;
                             }
                             std::array<const CallOption *, 37> best{};
                             for (const CallOption *option : options) {
-                                if (!active[option->target]) {
-                                    continue;
-                                }
                                 if (option->chi && !allow_chi) {
                                     continue;
                                 }
@@ -2005,9 +1920,6 @@ void ExpectedScoreCalculator::calc_stats(const Config &config, Graph &graph,
             }
 
             for (const Vertex vertex : discard_vertices) {
-                if (!active[vertex]) {
-                    continue;
-                }
                 double best_score = 0.0;
                 double best_occurrence = 0.0;
                 double best_inclusive = 0.0;
@@ -2017,9 +1929,6 @@ void ExpectedScoreCalculator::calc_stats(const Config &config, Graph &graph,
                 for (std::uint32_t ei = edge_csr.selection_edge_offsets[vi];
                      ei < edge_csr.selection_edge_offsets[vi + 1]; ++ei) {
                     const Vertex source = edge_csr.selection_edges[ei].source;
-                    if (!active[source]) {
-                        continue;
-                    }
                     if (graph[source].exp_score > best_score) {
                         best_score = graph[source].exp_score;
                         best_occurrence = occurrence[source];
@@ -2293,11 +2202,6 @@ ExpectedScoreCalculator::calc_core(const Config &_config,
     }
     if (config.remaining_tiles < -1 || config.remaining_tiles > 70) {
         throw std::invalid_argument("remaining_tiles must be in [-1, 70].");
-    }
-    if (config.probability_prune_threshold <= 0.0 ||
-        config.probability_prune_threshold > 1.0) {
-        throw std::invalid_argument(
-            "probability_prune_threshold must be in (0, 1].");
     }
     for (int turn = 1; turn <= LastTurn; ++turn) {
         if (config.other_win_hazard[turn] < 0.0 ||

@@ -254,7 +254,7 @@ TEST_CASE("yakuhai pon transitions are optional and report call probability")
     CHECK(call_stats.front().exp_score[1] >= closed_stats.front().exp_score[1]);
 }
 
-TEST_CASE("call model does not expand non-yakuhai chi or pon")
+TEST_CASE("non-yakuhai calls are allowed when they improve shanten")
 {
     Context context;
     PlayerState player = player_for("11234m456p789s44z");
@@ -272,44 +272,83 @@ TEST_CASE("call model does not expand non-yakuhai chi or pon")
     const auto [call_stats, call_searched] = ExpectedScoreCalculator::calc(
         enabled, context.table_config, context.round, context.table, player);
     REQUIRE(call_stats.size() == closed_stats.size());
-    CHECK(call_searched == closed_searched);
-    CHECK(call_stats.front().call_prob[1] == 0.0);
-    CHECK(call_stats.front().exp_score[1] == Approx(closed_stats.front().exp_score[1]));
+    CHECK(call_searched > closed_searched);
+    CHECK(call_stats.front().call_prob[1] >= 0.0);
+    CHECK(call_stats.front().exp_score[1] >= closed_stats.front().exp_score[1]);
 }
 
-TEST_CASE("probability pruning is optional and bounded")
+TEST_CASE("call model skips hands without a shanten-improving chi or pon")
 {
     Context context;
-    PlayerState player = player_for("1234m23467p12406s");
+    PlayerState player = player_for("147m258p369s1234z");
     player.seat_wind = Tile::South;
 
-    ExpectedScoreCalculator::Config exact;
-    exact.t_max = 4;
-    exact.extra = 1;
-    exact.calc_yaku_stats = true;
-    exact.calc_shapley_stats = true;
-    const auto [exact_stats, exact_searched] = ExpectedScoreCalculator::calc(
-        exact, context.table_config, context.round, context.table, player);
+    ExpectedScoreCalculator::Config disabled;
+    disabled.t_max = 4;
+    disabled.enable_shanten_down = false;
+    disabled.enable_tegawari = false;
+    const auto [closed_stats, closed_searched] = ExpectedScoreCalculator::calc(
+        disabled, context.table_config, context.round, context.table, player);
 
-    auto pruned = exact;
-    pruned.enable_probability_pruning = true;
-    pruned.probability_prune_threshold = 0.01;
-    const auto [pruned_stats, pruned_searched] = ExpectedScoreCalculator::calc(
-        pruned, context.table_config, context.round, context.table, player);
+    auto enabled = disabled;
+    enabled.enable_calls = true;
+    const auto [call_stats, call_searched] = ExpectedScoreCalculator::calc(
+        enabled, context.table_config, context.round, context.table, player);
+    REQUIRE(call_stats.size() == closed_stats.size());
+    CHECK(call_searched == closed_searched);
+    CHECK(call_stats.front().call_prob[1] == 0.0);
+}
 
-    REQUIRE(pruned_searched == exact_searched);
-    REQUIRE(pruned_stats.size() == exact_stats.size());
-    bool changed = false;
-    for (std::size_t i = 0; i < exact_stats.size(); ++i) {
-        CHECK(std::isfinite(pruned_stats[i].win_prob[1]));
-        CHECK(std::isfinite(pruned_stats[i].exp_score[1]));
-        changed = changed ||
-                  std::abs(pruned_stats[i].exp_score[1] -
-                           exact_stats[i].exp_score[1]) > 1e-9;
-        CHECK(shapley_sum(pruned_stats[i], 1) ==
-              Approx(pruned_stats[i].exp_score[1]).margin(1e-8));
-    }
-    CHECK(changed);
+TEST_CASE("shanten-improving chi from kamicha is added to the graph")
+{
+    Context context;
+    PlayerState player = player_for("12m4569p789s1234z");
+    player.seat_wind = Tile::South;
+
+    ExpectedScoreCalculator::Config disabled;
+    disabled.t_max = 2;
+    disabled.enable_shanten_down = false;
+    disabled.enable_tegawari = false;
+    const auto [closed_stats, closed_searched] = ExpectedScoreCalculator::calc(
+        disabled, context.table_config, context.round, context.table, player);
+
+    auto enabled = disabled;
+    enabled.enable_calls = true;
+    const auto [call_stats, call_searched] = ExpectedScoreCalculator::calc(
+        enabled, context.table_config, context.round, context.table, player);
+    REQUIRE(call_stats.size() == closed_stats.size());
+    CHECK(call_searched > closed_searched);
+}
+
+TEST_CASE("first call excludes ryanmen chi but keeps penchan chi")
+{
+    Context context;
+    ExpectedScoreCalculator::Config disabled;
+    disabled.t_max = 2;
+    disabled.enable_shanten_down = false;
+    disabled.enable_tegawari = false;
+    auto enabled = disabled;
+    enabled.enable_calls = true;
+
+    PlayerState ryanmen = player_for("23m45p111999s147z");
+    ryanmen.seat_wind = Tile::South;
+    const auto [ryanmen_closed, ryanmen_closed_searched] =
+        ExpectedScoreCalculator::calc(disabled, context.table_config,
+                                      context.round, context.table, ryanmen);
+    const auto [ryanmen_calls, ryanmen_call_searched] =
+        ExpectedScoreCalculator::calc(enabled, context.table_config,
+                                      context.round, context.table, ryanmen);
+    CHECK(ryanmen_call_searched == ryanmen_closed_searched);
+
+    PlayerState penchan = player_for("12m45p111999s147z");
+    penchan.seat_wind = Tile::South;
+    const auto [penchan_closed, penchan_closed_searched] =
+        ExpectedScoreCalculator::calc(disabled, context.table_config,
+                                      context.round, context.table, penchan);
+    const auto [penchan_calls, penchan_call_searched] =
+        ExpectedScoreCalculator::calc(enabled, context.table_config,
+                                      context.round, context.table, penchan);
+    CHECK(penchan_call_searched > penchan_closed_searched);
 }
 
 TEST_CASE("exact Shapley allocation is efficient for every discard")

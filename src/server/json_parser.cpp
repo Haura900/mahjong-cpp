@@ -97,14 +97,6 @@ Request make_request(const rapidjson::Value &doc)
     if (doc.HasMember("enable_calls")) {
         req.config.enable_calls = doc["enable_calls"].GetBool();
     }
-    if (doc.HasMember("enable_probability_pruning")) {
-        req.config.enable_probability_pruning =
-            doc["enable_probability_pruning"].GetBool();
-    }
-    if (doc.HasMember("probability_prune_threshold")) {
-        req.config.probability_prune_threshold =
-            doc["probability_prune_threshold"].GetDouble();
-    }
     if (doc.HasMember("enable_turn_yaku")) {
         req.config.enable_turn_yaku = doc["enable_turn_yaku"].GetBool();
     }
@@ -580,11 +572,6 @@ void build_success_response(const Request &req, const CalculationResult &result,
     config_val.AddMember("enable_riichi", result.config.enable_riichi, allocator);
     if (result.config.enable_calls) {
         config_val.AddMember("enable_calls", true, allocator);
-    }
-    if (result.config.enable_probability_pruning) {
-        config_val.AddMember("enable_probability_pruning", true, allocator);
-        config_val.AddMember("probability_prune_threshold",
-                             result.config.probability_prune_threshold, allocator);
     }
     if (result.config.enable_turn_yaku) {
         config_val.AddMember("enable_turn_yaku", true, allocator);

@@ -16,10 +16,6 @@ int main(int argc, char **argv)
     const int turn = argc >= 3 ? std::stoi(argv[2]) : 1;
     const double ron_rate = argc >= 4 ? std::stod(argv[3]) : 0.0;
     const bool enable_calls = argc >= 5 && std::stoi(argv[4]) != 0;
-    const bool enable_probability_pruning =
-        argc >= 6 && std::stoi(argv[5]) != 0;
-    const double probability_prune_threshold =
-        argc >= 7 ? std::stod(argv[6]) : 0.0001;
     if (turn < 1 || turn > 17) {
         std::cerr << "turn must be in [1, 17]\n";
         return 2;
@@ -46,8 +42,6 @@ int main(int argc, char **argv)
     config.extra = 1;
     config.ron_rate = ron_rate;
     config.enable_calls = enable_calls;
-    config.enable_probability_pruning = enable_probability_pruning;
-    config.probability_prune_threshold = probability_prune_threshold;
     config.enable_turn_yaku = true;
     config.calc_yaku_stats = true;
     config.calc_shapley_stats = true;
@@ -61,8 +55,6 @@ int main(int argc, char **argv)
     std::cout << std::fixed << std::setprecision(6);
     std::cout << "hand=" << hand << " turn=" << turn << " ron_rate=" << ron_rate
               << " calls=" << enable_calls << " searched=" << searched << '\n';
-    std::cout << "probability_pruning=" << enable_probability_pruning
-              << " threshold=" << probability_prune_threshold << '\n';
     for (const auto &stat : stats) {
         double shapley_sum = 0.0;
         for (const auto &entry : stat.yaku_stats) {

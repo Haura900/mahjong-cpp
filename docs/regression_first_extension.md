@@ -99,25 +99,19 @@ provided by `other_win_hazard`; turn 18 deliberately reuses turn 17 so the
 end-of-wall drop is not counted twice as both an opponent win and an exhaustive
 draw. Disabling the option is regression-identical to the original DP.
 
-`enable_calls` adds a deliberately bounded set of open-meld states to the same
-memoized graph. The initial implementation considers only pon of dragons, the
-round wind, or the seat wind, on each of the three opponent discard
-opportunities. At every opportunity the DP compares calling (including the
-mandatory following discard) with passing and keeps the higher expected-score
-continuation. Meld contents are part of the cache identity. `Stat::call_prob`
-reports the probability that the selected policy reaches a yakuhai-pon state.
-With the option disabled no call states are built, preserving the legacy graph
-and results.
-
-`enable_probability_pruning` is independent of calls. When enabled, the engine
-estimates the largest single-path probability of reaching every graph state
-from the requested discard roots, covering draw, shanten-down, tegawari, and
-call paths. States below `probability_prune_threshold` are omitted from all
-value and yaku-contribution passes. Because many individually rare paths can
-add up, this is an explicitly approximate mode: a higher threshold is faster
-but less accurate. The default engine setting is disabled so legacy and
-regression runs remain exact; callers can enable it explicitly for interactive
-use.
+`enable_calls` adds a bounded set of open-meld states to the same memoized
+graph. Pon is considered on each of the three opponent discard opportunities;
+chi is considered only on the kamicha opportunity. A candidate is built only
+when the best mandatory discard after the call strictly lowers shanten. When
+the input hand is closed, ryanmen chi is excluded from the first call;
+kanchan/penchan chi remains eligible. At
+every opportunity the DP compares calling with passing and keeps the higher
+expected-score continuation. Meld contents are part of the cache identity.
+`Stat::call_prob` reports the probability that the selected policy calls. With
+the option disabled no call states are built, preserving the legacy graph and
+results. To keep this first expansion interactive, at most one new call is
+added on each simulated path; melds already present at the input remain fully
+represented.
 
 For a terminal result with role set `N`, the coalition value `v(S)` is the
 winner payment obtained when only the yaku/bonus categories in `S` contribute
