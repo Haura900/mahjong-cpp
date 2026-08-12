@@ -1,5 +1,6 @@
 param(
-    [string]$BuildDirectory = "build-wasm"
+    [string]$BuildDirectory = "build-wasm",
+    [string]$BoostIncludeDirectory = "C:\vcpkg\installed\x64-windows\include"
 )
 
 $ErrorActionPreference = "Stop"
@@ -12,7 +13,8 @@ emcmake cmake -S $repoRoot -B $buildPath `
     -DBUILD_TEST=OFF `
     -DBUILD_SAMPLES=OFF `
     -DBUILD_TOOLS=OFF `
-    -DBUILD_WASM=ON
+    -DBUILD_WASM=ON `
+    "-DBOOST_INCLUDE_DIR=$BoostIncludeDirectory"
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 cmake --build $buildPath --config Release --target mahjong-wasm

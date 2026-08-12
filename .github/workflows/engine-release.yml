@@ -62,12 +62,19 @@ jobs:
         with:
           version: 3.1.74
           actions-cache-folder: emsdk-cache
+      - name: Prepare Boost headers
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libboost-dev
+          mkdir -p .ci-deps
+          cp -a /usr/include/boost .ci-deps/
       - name: Build WebAssembly engine
         run: |
           emcmake cmake -S . -B build-wasm \
             -DCMAKE_BUILD_TYPE=Release \
             -DBUILD_SERVER=OFF -DBUILD_TEST=OFF \
-            -DBUILD_SAMPLES=OFF -DBUILD_TOOLS=OFF -DBUILD_WASM=ON
+            -DBUILD_SAMPLES=OFF -DBUILD_TOOLS=OFF -DBUILD_WASM=ON \
+            -DBOOST_INCLUDE_DIR="$PWD/.ci-deps"
           cmake --build build-wasm --target mahjong-wasm -j2
           node wasm/smoke.mjs build-wasm/mahjong.js
       - name: Package WebAssembly engine
