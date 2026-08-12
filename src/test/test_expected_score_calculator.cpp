@@ -373,6 +373,72 @@ TEST_CASE("first call excludes ryanmen chi but keeps penchan chi")
     CHECK(penchan_call_searched > penchan_closed_searched);
 }
 
+TEST_CASE("winning discard is not treated as a chi hand-change")
+{
+    Context context;
+    PlayerState player = player_for("46m55p456s6z");
+    player.seat_wind = Tile::South;
+    player.melds = {
+        {MeldType::Pon,
+         {Tile::WhiteDragon, Tile::WhiteDragon, Tile::WhiteDragon},
+         Tile::WhiteDragon,
+         SeatType::Kamicha},
+        {MeldType::Chi,
+         {Tile::Pinzu1, Tile::Pinzu2, Tile::Pinzu3},
+         Tile::Pinzu3,
+         SeatType::Kamicha},
+    };
+
+    ExpectedScoreCalculator::Config config;
+    config.t_max = 2;
+    config.enable_calls = true;
+    config.enable_shanten_down = false;
+    config.enable_tegawari = false;
+
+    const auto [stats, searched] = ExpectedScoreCalculator::calc(
+        config, context.table_config, context.round, context.table, player);
+    REQUIRE(searched > 0);
+    const auto &discard_green = stat_for(stats, Tile::GreenDragon);
+    const auto five_m =
+        std::find_if(discard_green.call_tile_stats.begin(),
+                     discard_green.call_tile_stats.end(), [](const auto &entry) {
+                         return entry.tile == Tile::Manzu5;
+                     });
+    CHECK(five_m == discard_green.call_tile_stats.end());
+}
+
+TEST_CASE("no-yaku completing discard may still be called")
+{
+    Context context;
+    PlayerState player = player_for("46m55p456s6z");
+    player.seat_wind = Tile::South;
+    player.melds = {
+        {MeldType::Chi,
+         {Tile::Pinzu1, Tile::Pinzu2, Tile::Pinzu3},
+         Tile::Pinzu3,
+         SeatType::Kamicha},
+        {MeldType::Chi,
+         {Tile::Pinzu7, Tile::Pinzu8, Tile::Pinzu9},
+         Tile::Pinzu9,
+         SeatType::Kamicha},
+    };
+
+    ExpectedScoreCalculator::Config config;
+    config.t_max = 2;
+    config.enable_calls = true;
+    config.enable_shanten_down = false;
+    config.enable_tegawari = false;
+
+    const auto [stats, searched] = ExpectedScoreCalculator::calc(
+        config, context.table_config, context.round, context.table, player);
+    REQUIRE(searched > 0);
+    const auto &discard_green = stat_for(stats, Tile::GreenDragon);
+    CHECK(std::any_of(discard_green.call_tile_stats.begin(),
+                      discard_green.call_tile_stats.end(), [](const auto &entry) {
+                          return entry.tile == Tile::Manzu5;
+                      }));
+}
+
 TEST_CASE("dynamic call branches do not re-expand tegawari or shanten-down")
 {
     Context context;

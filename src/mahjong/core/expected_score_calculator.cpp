@@ -1152,6 +1152,22 @@ ExpectedScoreCalculator::GraphBuilder::build_node(const bool draw,
             }
 
             const CallSpec &spec = frame.calls[frame.call_index];
+            const bool completes_hand =
+                frame.shanten == 0 &&
+                (frame.flags & (std::uint64_t{1} << spec.called_tile)) != 0;
+            if (completes_hand) {
+                draw_tile(spec.called_tile);
+                const auto ron = calc_score_variant(
+                    config_, table_config_, round_state_, table_state_, player_,
+                    hand_counts_, wall_counts_, frame.type, spec.called_tile,
+                    WinFlag::None);
+                discard_tile(spec.called_tile);
+                if (ron.score > 0.0) {
+                    ++frame.call_index;
+                    continue;
+                }
+            }
+
             apply_call(spec);
             const int post_call_shanten = std::get<1>(UnnecessaryTileCalculator::calc(
                 player_.hand, player_.num_melds(), config_.shanten_type,
