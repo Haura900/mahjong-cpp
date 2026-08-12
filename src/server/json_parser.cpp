@@ -6,7 +6,6 @@
 #include <string>
 #include <vector>
 
-#include <boost/dll.hpp>
 #include <rapidjson/istreamwrapper.h>
 #include <rapidjson/ostreamwrapper.h>
 #include <rapidjson/prettywriter.h>
@@ -15,6 +14,7 @@
 #include <spdlog/spdlog.h>
 
 #include "mahjong/mahjong.hpp"
+#include "mahjong/core/runtime_data_path.hpp"
 
 using namespace mahjong;
 
@@ -24,8 +24,8 @@ namespace
 const rapidjson::SchemaDocument &get_request_schema()
 {
     static const rapidjson::SchemaDocument schema = []() {
-        boost::filesystem::path schema_path =
-            boost::dll::program_location().parent_path() / "request_schema.json";
+        const std::filesystem::path schema_path =
+            mahjong::detail::runtime_data_directory() / "request_schema.json";
 
         std::ifstream ifs(schema_path.string());
         if (!ifs.is_open()) {
@@ -577,6 +577,8 @@ void build_success_response(const Request &req, const CalculationResult &result,
     auto &allocator = doc.GetAllocator();
     doc.SetObject();
     doc.AddMember("success", true, allocator);
+    doc.AddMember("engine_version", serialize_string(PROJECT_VERSION, doc), allocator);
+    doc.AddMember("api_version", 1, allocator);
     doc.AddMember("input", serialize_input(req, doc), allocator);
 
     rapidjson::Value shanten_val(rapidjson::kObjectType);

@@ -1,5 +1,19 @@
 # mahjong-cpp
 
+## Shared engine releases
+
+This fork publishes the same JSON calculation engine for desktop and browser
+consumers. A tag named `engine-v*` produces two versioned assets:
+
+- `nanikiru-engine-windows-x64.zip` for native Windows applications.
+- `nanikiru-engine-wasm.zip` for Web Workers and browser applications.
+
+Both targets call `process_engine_request`, so validation, calculation, and
+serialization stay identical. Successful responses include `engine_version`
+and `api_version`. Consumers should pin a release tag and SHA-256 checksum in
+an `engine-lock.json` file instead of downloading the latest release at build
+time.
+
 ## About
 
 日本のリーチ麻雀のルールで、点数や期待値計算を行う C++ ライブラリです。

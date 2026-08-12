@@ -5,7 +5,6 @@
 #include <string>
 #include <vector>
 
-#include <boost/dll.hpp>
 #include <catch2/catch.hpp>
 #include <rapidjson/document.h>
 #include <rapidjson/istreamwrapper.h>
@@ -14,6 +13,7 @@
 #include <rapidjson/writer.h>
 
 #include "mahjong/mahjong.hpp"
+#include "mahjong/core/runtime_data_path.hpp"
 #include "server/json_parser.hpp"
 #include "server/request_processor.hpp"
 
@@ -156,7 +156,7 @@ const rapidjson::SchemaDocument &get_response_schema()
 {
     static const rapidjson::SchemaDocument schema = []() {
         const auto schema_path =
-            boost::dll::program_location().parent_path() / "response_schema.json";
+            mahjong::detail::runtime_data_directory() / "response_schema.json";
         std::ifstream ifs(schema_path.string());
         if (!ifs.is_open()) {
             throw std::runtime_error("Failed to open response schema in test helper.");
@@ -769,8 +769,10 @@ TEST_CASE("build_success_response creates a schema-compliant success document")
 
     build_success_response(req, result, doc);
 
-    REQUIRE(doc.MemberCount() == 7);
+    REQUIRE(doc.MemberCount() == 9);
     REQUIRE(doc["success"].GetBool());
+    REQUIRE(std::string(doc["engine_version"].GetString()) == PROJECT_VERSION);
+    REQUIRE(doc["api_version"].GetInt() == 1);
 
     const rapidjson::Value &input = doc["input"];
     REQUIRE(input.MemberCount() == 8);
