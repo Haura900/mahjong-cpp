@@ -1,4 +1,5 @@
 #include "server.hpp"
+#include "engine_api.hpp"
 #include "request_processor.hpp"
 
 #include <fstream>
@@ -8,7 +9,6 @@
 #include <boost/beast/core.hpp>
 #include <boost/beast/http.hpp>
 #include <boost/beast/version.hpp>
-#include <boost/dll.hpp>
 #include <rapidjson/document.h>
 #include <rapidjson/istreamwrapper.h>
 #include <rapidjson/ostreamwrapper.h>
@@ -94,35 +94,8 @@ void Server::log_request(const Request &req)
 
 std::string Server::process_request(const std::string &json)
 {
-    rapidjson::Document req_doc;
-    rapidjson::Document res_doc;
-    res_doc.SetObject();
-
-    try {
-        parse_json(json, req_doc);
-    }
-    catch (const std::exception &e) {
-        build_error_response(e.what(), res_doc);
-        get_logger()->info("Failed to process request: reason={}.", e.what());
-        return dump_json(res_doc);
-    }
-
-    const std::string ip = req_doc.HasMember("ip") ? req_doc["ip"].GetString() : "";
-
-    try {
-        Request req = deserialize_request(req_doc);
-        log_request(req);
-        CalculationResult result = calculate_result(req);
-        build_success_response(req, result, res_doc);
-    }
-    catch (const std::exception &e) {
-        build_error_response(e.what(), res_doc);
-        get_logger()->info("Failed to process request: ip={}, reason={}.", ip,
-                           e.what());
-        return dump_json(res_doc);
-    }
-
-    return dump_json(res_doc);
+    return process_engine_request(json,
+                                  [this](const Request &req) { log_request(req); });
 }
 
 Server::HttpResponse Server::process_http_post(const std::string &json)

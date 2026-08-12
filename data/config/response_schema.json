@@ -4,6 +4,8 @@
       "type": "object",
       "required": [
         "success",
+        "engine_version",
+        "api_version",
         "input",
         "config",
         "shanten",
@@ -15,6 +17,13 @@
       "properties": {
         "success": {
           "enum": [true]
+        },
+        "engine_version": {
+          "type": "string"
+        },
+        "api_version": {
+          "type": "integer",
+          "minimum": 1
         },
         "input": {
           "$ref": "#/definitions/input"

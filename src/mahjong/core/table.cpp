@@ -1,6 +1,6 @@
 #include "table.hpp"
 
-#include <boost/dll.hpp>
+#include "runtime_data_path.hpp"
 
 namespace mahjong
 {
@@ -17,13 +17,13 @@ Table::Table()
  */
 bool Table::initialize()
 {
-    boost::filesystem::path exe_path = boost::dll::program_location().parent_path();
+    const std::filesystem::path exe_path = detail::runtime_data_directory();
 #ifdef USE_NYANTEN_TABLE
-    boost::filesystem::path suits_table_path = exe_path / "suits_table_nyanten.bin";
-    boost::filesystem::path honors_table_path = exe_path / "honors_table_nyanten.bin";
+    const std::filesystem::path suits_table_path = exe_path / "suits_table_nyanten.bin";
+    const std::filesystem::path honors_table_path = exe_path / "honors_table_nyanten.bin";
 #else
-    boost::filesystem::path suits_table_path = exe_path / "suits_table.bin";
-    boost::filesystem::path honors_table_path = exe_path / "honors_table.bin";
+    const std::filesystem::path suits_table_path = exe_path / "suits_table.bin";
+    const std::filesystem::path honors_table_path = exe_path / "honors_table.bin";
 #endif
 
     return load_table(suits_table_path.string(), suits_table_) &&

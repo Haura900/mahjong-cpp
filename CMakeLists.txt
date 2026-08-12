@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(mahjong-cpp VERSION 0.9.8)
+project(mahjong-cpp VERSION 0.9.9)
 
 if(POLICY CMP0167)
   cmake_policy(SET CMP0167 NEW)
@@ -29,14 +29,16 @@ if(MSVC)
   add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/utf-8>")
 endif()
 
-# Boost
-set(Boost_USE_STATIC_LIBS ON)
-set(Boost_USE_MULTITHREADED ON)
-set(Boost_USE_STATIC_RUNTIME OFF)
-if(DEFINED ENV{BOOST_ROOT})
-  list(PREPEND CMAKE_PREFIX_PATH "$ENV{BOOST_ROOT}/stage/lib/cmake")
+# Boost is only needed for native executable/data location and networking.
+if(NOT EMSCRIPTEN)
+  set(Boost_USE_STATIC_LIBS ON)
+  set(Boost_USE_MULTITHREADED ON)
+  set(Boost_USE_STATIC_RUNTIME OFF)
+  if(DEFINED ENV{BOOST_ROOT})
+    list(PREPEND CMAKE_PREFIX_PATH "$ENV{BOOST_ROOT}/stage/lib/cmake")
+  endif()
+  find_package(Boost 1.81 REQUIRED CONFIG COMPONENTS filesystem system)
 endif()
-find_package(Boost 1.81 REQUIRED CONFIG COMPONENTS filesystem system)
 
 # RapidJSON
 include(FetchContent)
@@ -73,8 +75,16 @@ option(BUILD_SERVER "build server programs." ON)
 option(BUILD_TEST "build test programs." OFF)
 option(BUILD_SAMPLES "build sample programs." ON)
 option(BUILD_TOOLS "build tool programs." ON)
+option(BUILD_WASM "build the WebAssembly JSON API." OFF)
 option(ENABLE_OPENMP "enable OpenMP parallel loops." OFF)
 option(ENABLE_ASSERT_IN_RELEASE "enable assert in release builds." OFF)
+
+if(EMSCRIPTEN)
+  set(BOOST_INCLUDE_DIR "" CACHE PATH "Boost headers used by the WASM build")
+  if(NOT EXISTS "${BOOST_INCLUDE_DIR}/boost/unordered/unordered_flat_map.hpp")
+    message(FATAL_ERROR "Set BOOST_INCLUDE_DIR to Boost 1.81+ headers for WASM")
+  endif()
+endif()
 
 if(ENABLE_OPENMP)
   find_package(OpenMP REQUIRED)
@@ -102,7 +112,10 @@ set(LIB_NAME mahjong-cpp)
 
 file(GLOB_RECURSE SRC_FILES src/mahjong/*.cpp)
 add_library(${LIB_NAME} ${SRC_FILES})
-if (MSVC)
+if(EMSCRIPTEN)
+  target_include_directories(${LIB_NAME} PUBLIC ${BOOST_INCLUDE_DIR})
+  target_link_libraries(${LIB_NAME} spdlog::spdlog)
+elseif (MSVC)
   target_link_libraries(${LIB_NAME} ${CMAKE_DL_LIBS} Boost::filesystem Boost::system
                         spdlog)
 else()
@@ -132,4 +145,41 @@ endif()
 
 if(BUILD_TOOLS)
   add_subdirectory(src/tools)
+endif()
+
+if(BUILD_WASM)
+  if(NOT EMSCRIPTEN)
+    message(FATAL_ERROR "BUILD_WASM requires the Emscripten toolchain")
+  endif()
+
+  add_executable(mahjong-wasm
+    wasm/mahjong_wasm.cpp
+    src/server/engine_api.cpp
+    src/server/json_parser.cpp
+    src/server/request_processor.cpp)
+  target_link_libraries(mahjong-wasm ${LIB_NAME} spdlog::spdlog)
+  target_compile_options(mahjong-wasm PRIVATE -O3 -fexceptions)
+  target_link_options(mahjong-wasm PRIVATE
+    -O3
+    -fexceptions
+    --bind
+    --no-entry
+    "-sDISABLE_EXCEPTION_CATCHING=0"
+    "-sMODULARIZE=1"
+    "-sEXPORT_ES6=1"
+    "-sEXPORT_NAME=createMahjongModule"
+    "-sALLOW_MEMORY_GROWTH=1"
+    "-sSTACK_SIZE=33554432"
+    "-sENVIRONMENT=web,worker,node"
+    "-sFILESYSTEM=1"
+    "SHELL:--preload-file ${CMAKE_SOURCE_DIR}/data/config/suits_patterns.json@/mahjong-data/suits_patterns.json"
+    "SHELL:--preload-file ${CMAKE_SOURCE_DIR}/data/config/honors_patterns.json@/mahjong-data/honors_patterns.json"
+    "SHELL:--preload-file ${CMAKE_SOURCE_DIR}/data/config/suits_table.bin@/mahjong-data/suits_table.bin"
+    "SHELL:--preload-file ${CMAKE_SOURCE_DIR}/data/config/honors_table.bin@/mahjong-data/honors_table.bin"
+    "SHELL:--preload-file ${CMAKE_SOURCE_DIR}/data/config/request_schema.json@/mahjong-data/request_schema.json")
+  set_target_properties(mahjong-wasm PROPERTIES OUTPUT_NAME mahjong SUFFIX ".js")
+  add_custom_command(TARGET mahjong-wasm POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${CMAKE_SOURCE_DIR}/wasm/worker.js
+            $<TARGET_FILE_DIR:mahjong-wasm>/worker.js)
 endif()

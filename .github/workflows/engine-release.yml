@@ -1,0 +1,111 @@
+name: Shared engine build
+
+on:
+  push:
+    branches: [master, "agent/**"]
+    tags: ["engine-v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            git
+            mingw-w64-ucrt-x86_64-boost
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
+            mingw-w64-ucrt-x86_64-rapidjson
+            mingw-w64-ucrt-x86_64-spdlog
+            mingw-w64-ucrt-x86_64-toolchain
+      - name: Build and test native engine
+        shell: msys2 {0}
+        run: |
+          cmake -S . -B build-native -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_TEST=ON -DBUILD_SAMPLES=OFF -DBUILD_TOOLS=OFF
+          cmake --build build-native --target nanikiru test_json_parser
+          ./build-native/src/test/test_json_parser.exe
+      - name: Package native engine
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force stage/native | Out-Null
+          Copy-Item build-native/src/server/nanikiru.exe stage/native/
+          Copy-Item data/config/* stage/native/
+          $manifest = @{
+            version = "0.9.9"
+            apiVersion = 1
+            commit = "${{ github.sha }}"
+            target = "windows-x64"
+          } | ConvertTo-Json
+          Set-Content stage/native/engine-manifest.json $manifest -Encoding utf8
+          Compress-Archive stage/native/* nanikiru-engine-windows-x64.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: engine-windows-x64
+          path: nanikiru-engine-windows-x64.zip
+
+  wasm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: 3.1.74
+          actions-cache-folder: emsdk-cache
+      - name: Prepare Boost headers
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libboost-dev
+          mkdir -p .ci-deps
+          cp -a /usr/include/boost .ci-deps/
+      - name: Build WebAssembly engine
+        run: |
+          emcmake cmake -S . -B build-wasm \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DBUILD_SERVER=OFF -DBUILD_TEST=OFF \
+            -DBUILD_SAMPLES=OFF -DBUILD_TOOLS=OFF -DBUILD_WASM=ON \
+            -DBOOST_INCLUDE_DIR="$PWD/.ci-deps"
+          cmake --build build-wasm --target mahjong-wasm -j2
+          node wasm/smoke.mjs build-wasm/mahjong.js
+      - name: Package WebAssembly engine
+        run: |
+          mkdir -p stage/wasm
+          cp build-wasm/mahjong.js build-wasm/mahjong.wasm \
+             build-wasm/mahjong.data build-wasm/worker.js stage/wasm/
+          printf '{"version":"0.9.9","apiVersion":1,"commit":"%s","target":"wasm"}\n' \
+            "${GITHUB_SHA}" > stage/wasm/engine-manifest.json
+          cd stage/wasm
+          zip -9 ../../nanikiru-engine-wasm.zip *
+      - uses: actions/upload-artifact@v4
+        with:
+          name: engine-wasm
+          path: nanikiru-engine-wasm.zip
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/engine-v')
+    needs: [windows, wasm]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: engine-*
+          merge-multiple: true
+      - name: Create checksums
+        run: sha256sum *.zip > checksums.txt
+      - uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            nanikiru-engine-windows-x64.zip
+            nanikiru-engine-wasm.zip
+            checksums.txt
