@@ -121,8 +121,7 @@ Request make_request(const rapidjson::Value &doc)
         req.config.remaining_tiles = doc["remaining_tiles"].GetInt();
     }
     if (doc.HasMember("enable_other_win_stop")) {
-        req.config.enable_other_win_stop =
-            doc["enable_other_win_stop"].GetBool();
+        req.config.enable_other_win_stop = doc["enable_other_win_stop"].GetBool();
     }
     if (doc.HasMember("other_win_hazard")) {
         const auto &hazards = doc["other_win_hazard"].GetArray();
@@ -350,6 +349,25 @@ serialize_expected_score(const std::vector<ExpectedScoreCalculator::Stat> &stats
         }
         x.AddMember("call_prob", call_prob, allocator);
 
+        rapidjson::Value call_win_prob(rapidjson::kArrayType);
+        for (const auto prob : stat.call_win_prob) {
+            call_win_prob.PushBack(std::clamp(prob, 0.0, 1.0), allocator);
+        }
+        x.AddMember("call_win_prob", call_win_prob, allocator);
+
+        rapidjson::Value call_tile_stats(rapidjson::kArrayType);
+        for (const auto &entry : stat.call_tile_stats) {
+            rapidjson::Value call_tile(rapidjson::kObjectType);
+            call_tile.AddMember("tile", entry.tile, allocator);
+            rapidjson::Value probability(rapidjson::kArrayType);
+            for (const auto prob : entry.probability) {
+                probability.PushBack(std::clamp(prob, 0.0, 1.0), allocator);
+            }
+            call_tile.AddMember("probability", probability, allocator);
+            call_tile_stats.PushBack(call_tile, allocator);
+        }
+        x.AddMember("call_tile_stats", call_tile_stats, allocator);
+
         x.AddMember("necessary_tiles",
                     serialize_necessary_tiles(stat.necessary_tiles, doc), allocator);
 
@@ -380,6 +398,17 @@ serialize_expected_score(const std::vector<ExpectedScoreCalculator::Stat> &stats
                     shapley.PushBack(score, allocator);
                 }
                 yaku.AddMember("shapley_score", shapley, allocator);
+                rapidjson::Value called_occurrence(rapidjson::kArrayType);
+                for (const double probability : entry.called_occurrence_prob) {
+                    called_occurrence.PushBack(std::clamp(probability, 0.0, 1.0),
+                                               allocator);
+                }
+                yaku.AddMember("called_occurrence_prob", called_occurrence, allocator);
+                rapidjson::Value called_shapley(rapidjson::kArrayType);
+                for (const double score : entry.called_shapley_score) {
+                    called_shapley.PushBack(score, allocator);
+                }
+                yaku.AddMember("called_shapley_score", called_shapley, allocator);
                 yaku_stats.PushBack(yaku, allocator);
             }
             x.AddMember("yaku_stats", yaku_stats, allocator);
@@ -593,8 +622,7 @@ void build_success_response(const Request &req, const CalculationResult &result,
         config_val.AddMember("enable_other_win_stop", true, allocator);
         rapidjson::Value other_win_hazard(rapidjson::kArrayType);
         for (int turn = 1; turn <= 18; ++turn) {
-            other_win_hazard.PushBack(result.config.other_win_hazard[turn],
-                                      allocator);
+            other_win_hazard.PushBack(result.config.other_win_hazard[turn], allocator);
         }
         config_val.AddMember("other_win_hazard", other_win_hazard, allocator);
     }

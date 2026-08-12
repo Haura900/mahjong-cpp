@@ -711,12 +711,15 @@ TEST_CASE("build_success_response serializes optional yaku contributions")
     result.config.enable_turn_yaku = true;
     result.config.enable_calls = true;
     result.config.yaku_filter = Yaku::Pinfu | Yaku::Tanyao;
-    result.stats[0].yaku_stats = {
-        {Yaku::Pinfu,
-         {0.0, 0.125},
-         {0.0, 1200.0},
-         {0.0, 400.0},
-         {0.0, 800.0}}};
+    result.stats[0].call_win_prob = {0.0, 0.03};
+    result.stats[0].call_tile_stats = {{Tile::WhiteDragon, {0.0, 0.05}}};
+    result.stats[0].yaku_stats = {{Yaku::Pinfu,
+                                   {0.0, 0.125},
+                                   {0.0, 1200.0},
+                                   {0.0, 400.0},
+                                   {0.0, 800.0},
+                                   {0.0, 0.025},
+                                   {0.0, 150.0}}};
 
     rapidjson::Document doc;
     build_success_response(req, result, doc);
@@ -733,6 +736,11 @@ TEST_CASE("build_success_response serializes optional yaku contributions")
     REQUIRE(doc["config"]["enable_calls"].GetBool());
     REQUIRE(doc["stats"][0]["yaku_stats"].Size() == 1);
     REQUIRE(doc["stats"][0]["yaku_stats"][0]["yaku"].GetUint64() == Yaku::Pinfu);
+    REQUIRE(to_double_vector(doc["stats"][0]["call_win_prob"]) ==
+            std::vector<double>({0.0, 0.03}));
+    REQUIRE(doc["stats"][0]["call_tile_stats"].Size() == 1);
+    REQUIRE(doc["stats"][0]["call_tile_stats"][0]["tile"].GetInt() ==
+            Tile::WhiteDragon);
     REQUIRE(to_double_vector(doc["stats"][0]["yaku_stats"][0]["occurrence_prob"]) ==
             std::vector<double>({0.0, 0.125}));
     REQUIRE(to_double_vector(doc["stats"][0]["yaku_stats"][0]["inclusive_score"]) ==
@@ -741,6 +749,12 @@ TEST_CASE("build_success_response serializes optional yaku contributions")
             std::vector<double>({0.0, 400.0}));
     REQUIRE(to_double_vector(doc["stats"][0]["yaku_stats"][0]["shapley_score"]) ==
             std::vector<double>({0.0, 800.0}));
+    REQUIRE(
+        to_double_vector(doc["stats"][0]["yaku_stats"][0]["called_occurrence_prob"]) ==
+        std::vector<double>({0.0, 0.025}));
+    REQUIRE(
+        to_double_vector(doc["stats"][0]["yaku_stats"][0]["called_shapley_score"]) ==
+        std::vector<double>({0.0, 150.0}));
     validate_response_schema(doc);
 }
 

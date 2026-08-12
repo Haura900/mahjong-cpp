@@ -85,6 +85,17 @@ class ExpectedScoreCalculator
         std::vector<double> marginal_score;
         /* Exact Shapley allocation. Values sum to total expected score. */
         std::vector<double> shapley_score;
+        /* Joint probability that a dynamic call occurred and this yaku wins. */
+        std::vector<double> called_occurrence_prob;
+        /* Joint Shapley contribution on dynamically called paths. */
+        std::vector<double> called_shapley_score;
+    };
+
+    struct CallTileStat
+    {
+        int tile = Tile::Null;
+        /* Unconditional probability that the selected policy calls this tile. */
+        std::vector<double> probability;
     };
 
     struct Stat
@@ -105,6 +116,10 @@ class ExpectedScoreCalculator
         int shanten;
         /* optional per-yaku expected-score contributions */
         std::vector<YakuStat> yaku_stats;
+        /* probability of winning after a dynamic chi or pon */
+        std::vector<double> call_win_prob;
+        /* distribution of the single dynamic call by called tile */
+        std::vector<CallTileStat> call_tile_stats;
     };
 
   private:
@@ -155,8 +170,11 @@ class ExpectedScoreCalculator
         double win_prob = 0.0;
         double exp_score = 0.0;
         double call_prob = 0.0;
+        double call_win_prob = 0.0;
         bool is_tenpai = false;
         bool has_open_meld = false;
+        bool dynamic_called = false;
+        std::int8_t dynamic_call_tile = -1;
     };
 
   public:
@@ -218,12 +236,10 @@ class ExpectedScoreCalculator
                 const auto offset = static_cast<std::uint32_t>(contributions.size());
                 for (int i = 0; i < Yaku::Length; ++i) {
                     if (data.occurrence[i] != 0.0 || data.inclusive[i] != 0.0 ||
-                        data.marginal[i] != 0.0 ||
-                        data.shapley[i] != 0.0) {
-                        contributions.push_back(
-                            ContributionData{YakuFlags{1} << i, data.occurrence[i],
-                                             data.inclusive[i],
-                                             data.marginal[i], data.shapley[i]});
+                        data.marginal[i] != 0.0 || data.shapley[i] != 0.0) {
+                        contributions.push_back(ContributionData{
+                            YakuFlags{1} << i, data.occurrence[i], data.inclusive[i],
+                            data.marginal[i], data.shapley[i]});
                     }
                 }
                 return std::pair<std::uint32_t, std::uint16_t>{
@@ -341,14 +357,13 @@ class ExpectedScoreCalculator
                       SeparatedCount &hand_counts, SeparatedCount &wall_counts,
                       GraphBuilder &graph_builder, std::vector<Stat> &stats);
     static EdgeCsr build_edge_csr(const Graph &graph);
-    static void calc_stats(const Config &config, Graph &graph,
-                           const std::vector<Vertex> &draw_vertices,
-                           const std::vector<Vertex> &discard_vertices,
-                           const std::vector<std::pair<Vertex, Vertex>> &ippatsu_expiries,
-                           const std::vector<CallOption> &call_options,
-                           const EdgeCsr &edge_csr,
-                           const std::vector<Vertex> &root_vertices,
-                           std::vector<Stat> &stats);
+    static void
+    calc_stats(const Config &config, Graph &graph,
+               const std::vector<Vertex> &draw_vertices,
+               const std::vector<Vertex> &discard_vertices,
+               const std::vector<std::pair<Vertex, Vertex>> &ippatsu_expiries,
+               const std::vector<CallOption> &call_options, const EdgeCsr &edge_csr,
+               const std::vector<Vertex> &root_vertices, std::vector<Stat> &stats);
     static std::tuple<std::vector<Stat>, int>
     calc_core(const Config &config, const TableConfig &table_config,
               const RoundState &round_state, const TableState &table_state,

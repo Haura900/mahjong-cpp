@@ -220,10 +220,10 @@ TEST_CASE("other-player win hazard terminates self-win paths")
     CHECK(stopped.tenpai_prob[1] == Approx(baseline.tenpai_prob[1]).margin(1e-13));
     CHECK(stopped.win_prob[1] == Approx(baseline.win_prob[1] * 0.75).margin(1e-13));
     CHECK(stopped.exp_score[1] == Approx(baseline.exp_score[1] * 0.75).margin(1e-10));
-    CHECK(yaku_for(stopped, Yaku::MixedTripleSequence).occurrence_prob[1] ==
-          Approx(yaku_for(baseline, Yaku::MixedTripleSequence).occurrence_prob[1] *
-                 0.75)
-              .margin(1e-13));
+    CHECK(
+        yaku_for(stopped, Yaku::MixedTripleSequence).occurrence_prob[1] ==
+        Approx(yaku_for(baseline, Yaku::MixedTripleSequence).occurrence_prob[1] * 0.75)
+            .margin(1e-13));
     CHECK(shapley_sum(stopped, 1) == Approx(stopped.exp_score[1]).margin(1e-10));
 }
 
@@ -245,12 +245,27 @@ TEST_CASE("yakuhai pon transitions are optional and report call probability")
 
     auto enabled = disabled;
     enabled.enable_calls = true;
+    enabled.calc_yaku_stats = true;
+    enabled.calc_shapley_stats = true;
     const auto [call_stats, call_searched] = ExpectedScoreCalculator::calc(
         enabled, context.table_config, context.round, context.table, player);
     REQUIRE(call_searched > closed_searched);
     REQUIRE(call_stats.size() == 1);
     CHECK(call_stats.front().call_prob[1] > 0.0);
     CHECK(call_stats.front().call_prob[1] <= 1.0);
+    CHECK(call_stats.front().call_win_prob[1] >= 0.0);
+    CHECK(call_stats.front().call_win_prob[1] <= call_stats.front().call_prob[1]);
+    CHECK(call_stats.front().call_win_prob[1] <= call_stats.front().win_prob[1]);
+    double call_tile_total = 0.0;
+    for (const auto &entry : call_stats.front().call_tile_stats) {
+        call_tile_total += entry.probability[1];
+    }
+    CHECK(call_tile_total == Approx(call_stats.front().call_prob[1]).margin(1e-12));
+    for (const auto &entry : call_stats.front().yaku_stats) {
+        REQUIRE(entry.called_occurrence_prob.size() == entry.occurrence_prob.size());
+        REQUIRE(entry.called_shapley_score.size() == entry.shapley_score.size());
+        CHECK(entry.called_occurrence_prob[1] <= entry.occurrence_prob[1] + 1e-12);
+    }
     CHECK(call_stats.front().exp_score[1] >= closed_stats.front().exp_score[1]);
 }
 
@@ -333,21 +348,19 @@ TEST_CASE("first call excludes ryanmen chi but keeps penchan chi")
     PlayerState ryanmen = player_for("23m45p111999s147z");
     ryanmen.seat_wind = Tile::South;
     const auto [ryanmen_closed, ryanmen_closed_searched] =
-        ExpectedScoreCalculator::calc(disabled, context.table_config,
-                                      context.round, context.table, ryanmen);
-    const auto [ryanmen_calls, ryanmen_call_searched] =
-        ExpectedScoreCalculator::calc(enabled, context.table_config,
-                                      context.round, context.table, ryanmen);
+        ExpectedScoreCalculator::calc(disabled, context.table_config, context.round,
+                                      context.table, ryanmen);
+    const auto [ryanmen_calls, ryanmen_call_searched] = ExpectedScoreCalculator::calc(
+        enabled, context.table_config, context.round, context.table, ryanmen);
     CHECK(ryanmen_call_searched == ryanmen_closed_searched);
 
     PlayerState penchan = player_for("12m45p111999s147z");
     penchan.seat_wind = Tile::South;
     const auto [penchan_closed, penchan_closed_searched] =
-        ExpectedScoreCalculator::calc(disabled, context.table_config,
-                                      context.round, context.table, penchan);
-    const auto [penchan_calls, penchan_call_searched] =
-        ExpectedScoreCalculator::calc(enabled, context.table_config,
-                                      context.round, context.table, penchan);
+        ExpectedScoreCalculator::calc(disabled, context.table_config, context.round,
+                                      context.table, penchan);
+    const auto [penchan_calls, penchan_call_searched] = ExpectedScoreCalculator::calc(
+        enabled, context.table_config, context.round, context.table, penchan);
     CHECK(penchan_call_searched > penchan_closed_searched);
 }
 
@@ -415,10 +428,9 @@ TEST_CASE("turn-aware DP includes ippatsu and count-selected haitei")
 
     CHECK(yaku_for(discard, Yaku::Ippatsu).inclusive_score[1] > 0.0);
     CHECK(yaku_for(discard, Yaku::UnderTheSea).inclusive_score[1] > 0.0);
-    CHECK(std::none_of(discard.yaku_stats.begin(), discard.yaku_stats.end(),
-                       [](const auto &entry) {
-                           return entry.yaku == Yaku::UnderTheRiver;
-                       }));
+    CHECK(std::none_of(
+        discard.yaku_stats.begin(), discard.yaku_stats.end(),
+        [](const auto &entry) { return entry.yaku == Yaku::UnderTheRiver; }));
     CHECK(shapley_sum(discard, 1) == Approx(discard.exp_score[1]).margin(1e-9));
 }
 
@@ -442,17 +454,13 @@ TEST_CASE("tsumo-only setting suppresses houtei on the final tile")
         config, context.table_config, context.round, context.table, player);
     REQUIRE(searched > 0);
     const auto &discard = stat_for(stats, Tile::Manzu9);
-    const auto houtei =
-        std::find_if(discard.yaku_stats.begin(), discard.yaku_stats.end(),
-                     [](const auto &entry) {
-                         return entry.yaku == Yaku::UnderTheRiver;
-                     });
+    const auto houtei = std::find_if(
+        discard.yaku_stats.begin(), discard.yaku_stats.end(),
+        [](const auto &entry) { return entry.yaku == Yaku::UnderTheRiver; });
 
     const auto haitei =
         std::find_if(discard.yaku_stats.begin(), discard.yaku_stats.end(),
-                     [](const auto &entry) {
-                         return entry.yaku == Yaku::UnderTheSea;
-                     });
+                     [](const auto &entry) { return entry.yaku == Yaku::UnderTheSea; });
     CHECK(haitei == discard.yaku_stats.end());
     CHECK(houtei == discard.yaku_stats.end());
     CHECK(shapley_sum(discard, 1) == Approx(discard.exp_score[1]).margin(1e-9));
@@ -475,9 +483,7 @@ TEST_CASE("remaining live-wall count makes haitei and houtei exclusive")
 
     const auto find_yaku = [](const auto &stat, const YakuFlags yaku) {
         return std::find_if(stat.yaku_stats.begin(), stat.yaku_stats.end(),
-                            [yaku](const auto &entry) {
-                                return entry.yaku == yaku;
-                            });
+                            [yaku](const auto &entry) { return entry.yaku == yaku; });
     };
 
     config.remaining_tiles = 4;

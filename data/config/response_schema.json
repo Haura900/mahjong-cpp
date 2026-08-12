@@ -295,6 +295,8 @@
         "win_prob",
         "exp_score",
         "call_prob",
+        "call_win_prob",
+        "call_tile_stats",
         "necessary_tiles",
         "shanten"
       ],
@@ -336,6 +338,18 @@
             "$ref": "#/definitions/probability"
           }
         },
+        "call_win_prob": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/probability"
+          }
+        },
+        "call_tile_stats": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/call_tile_stat"
+          }
+        },
         "yaku_stats": {
           "type": "array",
           "items": {
@@ -346,7 +360,7 @@
     },
     "yaku_stat": {
       "type": "object",
-      "required": ["yaku", "occurrence_prob", "inclusive_score", "marginal_score", "shapley_score"],
+      "required": ["yaku", "occurrence_prob", "inclusive_score", "marginal_score", "shapley_score", "called_occurrence_prob", "called_shapley_score"],
       "additionalProperties": false,
       "properties": {
         "yaku": {
@@ -377,6 +391,34 @@
           "type": "array",
           "items": {
             "type": "number"
+          }
+        },
+        "called_occurrence_prob": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/probability"
+          }
+        },
+        "called_shapley_score": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        }
+      }
+    },
+    "call_tile_stat": {
+      "type": "object",
+      "required": ["tile", "probability"],
+      "additionalProperties": false,
+      "properties": {
+        "tile": {
+          "$ref": "#/definitions/tile"
+        },
+        "probability": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/probability"
           }
         }
       }
