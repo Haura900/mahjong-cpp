@@ -369,7 +369,7 @@
     },
     "yaku_stat": {
       "type": "object",
-      "required": ["yaku", "occurrence_prob", "inclusive_score", "marginal_score", "shapley_score", "called_occurrence_prob", "called_shapley_score"],
+      "required": ["yaku", "occurrence_prob", "shapley_score", "called_occurrence_prob", "called_shapley_score"],
       "additionalProperties": false,
       "properties": {
         "yaku": {
@@ -382,18 +382,6 @@
             "type": "number",
             "minimum": 0,
             "maximum": 1
-          }
-        },
-        "inclusive_score": {
-          "type": "array",
-          "items": {
-            "type": "number"
-          }
-        },
-        "marginal_score": {
-          "type": "array",
-          "items": {
-            "type": "number"
           }
         },
         "shapley_score": {

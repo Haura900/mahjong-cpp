@@ -42,7 +42,7 @@ jobs:
           Copy-Item build-native/src/server/nanikiru.exe stage/native/
           Copy-Item data/config/* stage/native/
           $manifest = @{
-            version = "0.9.10"
+            version = "0.9.11"
             apiVersion = 1
             commit = "${{ github.sha }}"
             target = "windows-x64"
@@ -82,7 +82,7 @@ jobs:
           mkdir -p stage/wasm
           cp build-wasm/mahjong.js build-wasm/mahjong.wasm \
              build-wasm/mahjong.data build-wasm/worker.js stage/wasm/
-          printf '{"version":"0.9.10","apiVersion":1,"commit":"%s","target":"wasm"}\n' \
+          printf '{"version":"0.9.11","apiVersion":1,"commit":"%s","target":"wasm"}\n' \
             "${GITHUB_SHA}" > stage/wasm/engine-manifest.json
           cd stage/wasm
           zip -9 ../../nanikiru-engine-wasm.zip *

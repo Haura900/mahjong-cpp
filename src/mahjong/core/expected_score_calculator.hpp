@@ -79,10 +79,6 @@ class ExpectedScoreCalculator
         YakuFlags yaku = Yaku::None;
         /* Probability that the selected expected-score policy wins with this yaku. */
         std::vector<double> occurrence_prob;
-        /* Total expected score of wins containing this yaku. Overlaps are intentional. */
-        std::vector<double> inclusive_score;
-        /* Expected score lost when this yaku's value is removed. */
-        std::vector<double> marginal_score;
         /* Exact Shapley allocation. Values sum to total expected score. */
         std::vector<double> shapley_score;
         /* Joint probability that a dynamic call occurred and this yaku wins. */
@@ -166,11 +162,11 @@ class ExpectedScoreCalculator
         {
         }
 
-        double tenpai_prob = 0.0;
-        double win_prob = 0.0;
-        double exp_score = 0.0;
-        double call_prob = 0.0;
-        double call_win_prob = 0.0;
+        float tenpai_prob = 0.0F;
+        float win_prob = 0.0F;
+        float exp_score = 0.0F;
+        float call_prob = 0.0F;
+        float call_win_prob = 0.0F;
         bool is_tenpai = false;
         bool has_open_meld = false;
         bool dynamic_called = false;
@@ -182,8 +178,6 @@ class ExpectedScoreCalculator
     {
         double score = 0.0;
         std::array<double, Yaku::Length> occurrence{};
-        std::array<double, Yaku::Length> inclusive{};
-        std::array<double, Yaku::Length> marginal{};
         std::array<double, Yaku::Length> shapley{};
     };
 
@@ -191,10 +185,8 @@ class ExpectedScoreCalculator
     struct ContributionData
     {
         YakuFlags yaku = Yaku::None;
-        double occurrence = 0.0;
-        double inclusive = 0.0;
-        double marginal = 0.0;
-        double shapley = 0.0;
+        float occurrence = 0.0F;
+        float shapley = 0.0F;
     };
 
     using Vertex = std::uint32_t;
@@ -206,10 +198,10 @@ class ExpectedScoreCalculator
         std::uint32_t next_out;
         std::uint32_t next_in;
         int weight;
-        double score;
+        float score;
         std::uint32_t contribution_offset;
         std::uint16_t contribution_count;
-        double last_score;
+        float last_score;
         std::uint32_t last_contribution_offset;
         std::uint16_t last_contribution_count;
     };
@@ -235,11 +227,10 @@ class ExpectedScoreCalculator
             const auto append_contributions = [this](const ScoreData &data) {
                 const auto offset = static_cast<std::uint32_t>(contributions.size());
                 for (int i = 0; i < Yaku::Length; ++i) {
-                    if (data.occurrence[i] != 0.0 || data.inclusive[i] != 0.0 ||
-                        data.marginal[i] != 0.0 || data.shapley[i] != 0.0) {
+                    if (data.occurrence[i] != 0.0 || data.shapley[i] != 0.0) {
                         contributions.push_back(ContributionData{
-                            YakuFlags{1} << i, data.occurrence[i], data.inclusive[i],
-                            data.marginal[i], data.shapley[i]});
+                            YakuFlags{1} << i, static_cast<float>(data.occurrence[i]),
+                            static_cast<float>(data.shapley[i])});
                     }
                 }
                 return std::pair<std::uint32_t, std::uint16_t>{
@@ -250,9 +241,11 @@ class ExpectedScoreCalculator
             const auto [last_contribution_offset, last_contribution_count] =
                 append_contributions(last_score_data);
             edges.push_back(EdgeData{source, target, first_out_edges[source],
-                                     first_in_edges[target], weight, score_data.score,
+                                     first_in_edges[target], weight,
+                                     static_cast<float>(score_data.score),
                                      contribution_offset, contribution_count,
-                                     last_score_data.score, last_contribution_offset,
+                                     static_cast<float>(last_score_data.score),
+                                     last_contribution_offset,
                                      last_contribution_count});
             first_out_edges[source] = edge;
             first_in_edges[target] = edge;
@@ -289,6 +282,18 @@ class ExpectedScoreCalculator
         std::vector<std::uint32_t> first_out_edges;
         std::vector<std::uint32_t> first_in_edges;
         std::vector<ContributionData> contributions;
+
+        void release_adjacency()
+        {
+            std::vector<EdgeData>().swap(edges);
+            std::vector<std::uint32_t>().swap(first_out_edges);
+            std::vector<std::uint32_t>().swap(first_in_edges);
+        }
+
+        void release_contributions()
+        {
+            std::vector<ContributionData>().swap(contributions);
+        }
     };
 
     using Cache = boost::unordered_flat_map<CacheKey, Vertex, CacheKeyHash>;
@@ -297,10 +302,10 @@ class ExpectedScoreCalculator
     {
         std::uint32_t target;
         int weight;
-        double score;
+        float score;
         std::uint32_t contribution_offset;
         std::uint16_t contribution_count;
-        double last_score;
+        float last_score;
         std::uint32_t last_contribution_offset;
         std::uint16_t last_contribution_count;
     };

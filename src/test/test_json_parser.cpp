@@ -715,8 +715,6 @@ TEST_CASE("build_success_response serializes optional yaku contributions")
     result.stats[0].call_tile_stats = {{Tile::WhiteDragon, {0.0, 0.05}}};
     result.stats[0].yaku_stats = {{Yaku::Pinfu,
                                    {0.0, 0.125},
-                                   {0.0, 1200.0},
-                                   {0.0, 400.0},
                                    {0.0, 800.0},
                                    {0.0, 0.025},
                                    {0.0, 150.0}}};
@@ -743,10 +741,6 @@ TEST_CASE("build_success_response serializes optional yaku contributions")
             Tile::WhiteDragon);
     REQUIRE(to_double_vector(doc["stats"][0]["yaku_stats"][0]["occurrence_prob"]) ==
             std::vector<double>({0.0, 0.125}));
-    REQUIRE(to_double_vector(doc["stats"][0]["yaku_stats"][0]["inclusive_score"]) ==
-            std::vector<double>({0.0, 1200.0}));
-    REQUIRE(to_double_vector(doc["stats"][0]["yaku_stats"][0]["marginal_score"]) ==
-            std::vector<double>({0.0, 400.0}));
     REQUIRE(to_double_vector(doc["stats"][0]["yaku_stats"][0]["shapley_score"]) ==
             std::vector<double>({0.0, 800.0}));
     REQUIRE(

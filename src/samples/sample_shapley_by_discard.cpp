@@ -67,15 +67,12 @@ int main(int argc, char **argv)
                   << " shapley_sum=" << shapley_sum
                   << " residual=" << stat.exp_score[turn] - shapley_sum << '\n';
         for (const auto &entry : stat.yaku_stats) {
-            if (std::abs(entry.inclusive_score[turn]) < 1e-12 &&
-                std::abs(entry.marginal_score[turn]) < 1e-12 &&
+            if (std::abs(entry.occurrence_prob[turn]) < 1e-12 &&
                 std::abs(entry.shapley_score[turn]) < 1e-12) {
                 continue;
             }
             std::cout << "  " << Yaku::name(entry.yaku)
                       << " occurrence=" << entry.occurrence_prob[turn]
-                      << " inclusive=" << entry.inclusive_score[turn]
-                      << " marginal=" << entry.marginal_score[turn]
                       << " shapley=" << entry.shapley_score[turn] << '\n';
         }
     }

@@ -383,16 +383,6 @@ serialize_expected_score(const std::vector<ExpectedScoreCalculator::Stat> &stats
                     occurrence.PushBack(std::clamp(probability, 0.0, 1.0), allocator);
                 }
                 yaku.AddMember("occurrence_prob", occurrence, allocator);
-                rapidjson::Value inclusive(rapidjson::kArrayType);
-                for (const double score : entry.inclusive_score) {
-                    inclusive.PushBack(score, allocator);
-                }
-                yaku.AddMember("inclusive_score", inclusive, allocator);
-                rapidjson::Value marginal(rapidjson::kArrayType);
-                for (const double score : entry.marginal_score) {
-                    marginal.PushBack(score, allocator);
-                }
-                yaku.AddMember("marginal_score", marginal, allocator);
                 rapidjson::Value shapley(rapidjson::kArrayType);
                 for (const double score : entry.shapley_score) {
                     shapley.PushBack(score, allocator);
