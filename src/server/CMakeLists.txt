@@ -5,16 +5,16 @@ add_dependencies(${EXE_NAME} ${LIB_NAME})
 
 if (MSVC)
     target_link_libraries(${EXE_NAME} ${LIB_NAME} ${CMAKE_DL_LIBS}
-                          Boost::filesystem Boost::system spdlog)
+                          Boost::filesystem Boost::system spdlog::spdlog_header_only)
 elseif(ENABLE_OPENMP)
     set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall -Wextra")
     target_link_libraries(${EXE_NAME} ${LIB_NAME} ${CMAKE_DL_LIBS}
-                          Boost::filesystem Boost::system spdlog::spdlog
+                          Boost::filesystem Boost::system spdlog::spdlog_header_only
                           OpenMP::OpenMP_CXX)
 else()
     set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall -Wextra")
     target_link_libraries(${EXE_NAME} ${LIB_NAME} ${CMAKE_DL_LIBS}
-                          Boost::filesystem Boost::system spdlog::spdlog
+                          Boost::filesystem Boost::system spdlog::spdlog_header_only
                           -static-libgcc -static-libstdc++ -static)
     if(WIN32)
         target_link_libraries(${EXE_NAME} ws2_32)

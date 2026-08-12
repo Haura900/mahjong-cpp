@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(mahjong-cpp VERSION 0.9.9)
+project(mahjong-cpp VERSION 0.9.10)
 
 if(POLICY CMP0167)
   cmake_policy(SET CMP0167 NEW)
@@ -114,13 +114,13 @@ file(GLOB_RECURSE SRC_FILES src/mahjong/*.cpp)
 add_library(${LIB_NAME} ${SRC_FILES})
 if(EMSCRIPTEN)
   target_include_directories(${LIB_NAME} PUBLIC ${BOOST_INCLUDE_DIR})
-  target_link_libraries(${LIB_NAME} spdlog::spdlog)
+  target_link_libraries(${LIB_NAME} spdlog::spdlog_header_only)
 elseif (MSVC)
   target_link_libraries(${LIB_NAME} ${CMAKE_DL_LIBS} Boost::filesystem Boost::system
-                        spdlog)
+                        spdlog::spdlog_header_only)
 else()
   target_link_libraries(${LIB_NAME} ${CMAKE_DL_LIBS} Boost::filesystem Boost::system
-                        spdlog::spdlog -static-libgcc -static-libstdc++)
+                        spdlog::spdlog_header_only -static-libgcc -static-libstdc++)
 endif()
 if(ENABLE_OPENMP)
   target_compile_options(${LIB_NAME} PUBLIC ${OpenMP_CXX_FLAGS})
@@ -157,7 +157,7 @@ if(BUILD_WASM)
     src/server/engine_api.cpp
     src/server/json_parser.cpp
     src/server/request_processor.cpp)
-  target_link_libraries(mahjong-wasm ${LIB_NAME} spdlog::spdlog)
+  target_link_libraries(mahjong-wasm ${LIB_NAME} spdlog::spdlog_header_only)
   target_compile_options(mahjong-wasm PRIVATE -O3 -fexceptions)
   target_link_options(mahjong-wasm PRIVATE
     -O3
