@@ -376,3 +376,9 @@ turn       2m       6m       1p       3p       5p       8p       1s       3s    
   17     0.00     0.00     0.00     0.00     0.00     0.00     0.00     0.00     0.00     0.00     0.00     0.00     0.00
   18     0.00     0.00     0.00     0.00     0.00     0.00     0.00     0.00     0.00     0.00     0.00     0.00     0.00
 ```
+
+## Regression-first expected-score extensions
+
+The optional ron mixture, exact-DP yaku contributions, exact Shapley
+allocation, high-shanten guidance, regression contract, and before/after benchmark are documented in
+[docs/regression_first_extension.md](docs/regression_first_extension.md).

@@ -47,7 +47,8 @@ bool HandSeparator::initialize()
  * @return std::vector<std::vector<Block>> 面子構成の一覧
  */
 std::vector<std::tuple<std::vector<Block>, int>>
-HandSeparator::separate(const PlayerState &player, const int win_tile, const int win_flag)
+HandSeparator::separate(const PlayerState &player, const int win_tile,
+                        const int win_flag)
 {
     std::vector<std::tuple<std::vector<Block>, int>> pattern;
     std::vector<Block> blocks(5);
@@ -131,7 +132,7 @@ bool HandSeparator::make_table(const std::string &path,
     }
 
     fclose(fp);
-    delete buffer;
+    delete[] buffer;
 
     return true;
 }

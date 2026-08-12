@@ -88,7 +88,69 @@ Request make_request(const rapidjson::Value &doc)
     req.config.enable_reddora = doc["enable_reddora"].GetBool();
     req.config.enable_shanten_down = doc["enable_shanten_down"].GetBool();
     req.config.enable_tegawari = doc["enable_tegawari"].GetBool();
+    if (doc.HasMember("auto_disable_deep_search")) {
+        req.config.auto_disable_deep_search = doc["auto_disable_deep_search"].GetBool();
+    }
+    if (doc.HasMember("enable_riichi")) {
+        req.config.enable_riichi = doc["enable_riichi"].GetBool();
+    }
+    if (doc.HasMember("enable_calls")) {
+        req.config.enable_calls = doc["enable_calls"].GetBool();
+    }
+    if (doc.HasMember("enable_probability_pruning")) {
+        req.config.enable_probability_pruning =
+            doc["enable_probability_pruning"].GetBool();
+    }
+    if (doc.HasMember("probability_prune_threshold")) {
+        req.config.probability_prune_threshold =
+            doc["probability_prune_threshold"].GetDouble();
+    }
+    if (doc.HasMember("enable_turn_yaku")) {
+        req.config.enable_turn_yaku = doc["enable_turn_yaku"].GetBool();
+    }
     req.config.enable_uradora = doc["enable_uradora"].GetBool();
+    if (doc.HasMember("t_min")) {
+        req.config.t_min = doc["t_min"].GetInt();
+    }
+    if (doc.HasMember("t_max")) {
+        req.config.t_max = doc["t_max"].GetInt();
+    }
+    if (doc.HasMember("extra")) {
+        req.config.extra = doc["extra"].GetInt();
+    }
+    if (doc.HasMember("calc_stats")) {
+        req.config.calc_stats = doc["calc_stats"].GetBool();
+        req.calc_stats_explicit = true;
+    }
+    if (doc.HasMember("ron_rate")) {
+        req.config.ron_rate = doc["ron_rate"].GetDouble();
+    }
+    if (doc.HasMember("remaining_tiles")) {
+        req.config.remaining_tiles = doc["remaining_tiles"].GetInt();
+    }
+    if (doc.HasMember("enable_other_win_stop")) {
+        req.config.enable_other_win_stop =
+            doc["enable_other_win_stop"].GetBool();
+    }
+    if (doc.HasMember("other_win_hazard")) {
+        const auto &hazards = doc["other_win_hazard"].GetArray();
+        for (rapidjson::SizeType i = 0; i < hazards.Size(); ++i) {
+            req.config.other_win_hazard[i + 1] = hazards[i].GetDouble();
+        }
+        req.config.other_win_hazard[18] = req.config.other_win_hazard[17];
+    }
+    if (doc.HasMember("calc_yaku_stats")) {
+        req.config.calc_yaku_stats = doc["calc_yaku_stats"].GetBool();
+    }
+    if (doc.HasMember("calc_shapley_stats")) {
+        req.config.calc_shapley_stats = doc["calc_shapley_stats"].GetBool();
+    }
+    if (doc.HasMember("yaku_filter")) {
+        req.config.yaku_filter = doc["yaku_filter"].GetUint64();
+    }
+    if (doc.HasMember("state_tag")) {
+        req.config.state_tag = static_cast<std::uint8_t>(doc["state_tag"].GetUint());
+    }
 
     if (doc.HasMember("wall")) {
         for (int i = 0; i < 37; ++i) {
@@ -290,10 +352,46 @@ serialize_expected_score(const std::vector<ExpectedScoreCalculator::Stat> &stats
         }
         x.AddMember("exp_score", exp_score, allocator);
 
+        rapidjson::Value call_prob(rapidjson::kArrayType);
+        for (const auto prob : stat.call_prob) {
+            call_prob.PushBack(std::clamp(prob, 0.0, 1.0), allocator);
+        }
+        x.AddMember("call_prob", call_prob, allocator);
+
         x.AddMember("necessary_tiles",
                     serialize_necessary_tiles(stat.necessary_tiles, doc), allocator);
 
         x.AddMember("shanten", stat.shanten, allocator);
+
+        if (!stat.yaku_stats.empty()) {
+            rapidjson::Value yaku_stats(rapidjson::kArrayType);
+            for (const auto &entry : stat.yaku_stats) {
+                rapidjson::Value yaku(rapidjson::kObjectType);
+                yaku.AddMember("yaku", entry.yaku, allocator);
+                rapidjson::Value occurrence(rapidjson::kArrayType);
+                for (const double probability : entry.occurrence_prob) {
+                    occurrence.PushBack(std::clamp(probability, 0.0, 1.0), allocator);
+                }
+                yaku.AddMember("occurrence_prob", occurrence, allocator);
+                rapidjson::Value inclusive(rapidjson::kArrayType);
+                for (const double score : entry.inclusive_score) {
+                    inclusive.PushBack(score, allocator);
+                }
+                yaku.AddMember("inclusive_score", inclusive, allocator);
+                rapidjson::Value marginal(rapidjson::kArrayType);
+                for (const double score : entry.marginal_score) {
+                    marginal.PushBack(score, allocator);
+                }
+                yaku.AddMember("marginal_score", marginal, allocator);
+                rapidjson::Value shapley(rapidjson::kArrayType);
+                for (const double score : entry.shapley_score) {
+                    shapley.PushBack(score, allocator);
+                }
+                yaku.AddMember("shapley_score", shapley, allocator);
+                yaku_stats.PushBack(yaku, allocator);
+            }
+            x.AddMember("yaku_stats", yaku_stats, allocator);
+        }
 
         value.PushBack(x, allocator);
     }
@@ -477,12 +575,54 @@ void build_success_response(const Request &req, const CalculationResult &result,
     config_val.AddMember("enable_shanten_down", result.config.enable_shanten_down,
                          allocator);
     config_val.AddMember("enable_tegawari", result.config.enable_tegawari, allocator);
+    config_val.AddMember("auto_disable_deep_search",
+                         result.config.auto_disable_deep_search, allocator);
+    config_val.AddMember("enable_riichi", result.config.enable_riichi, allocator);
+    if (result.config.enable_calls) {
+        config_val.AddMember("enable_calls", true, allocator);
+    }
+    if (result.config.enable_probability_pruning) {
+        config_val.AddMember("enable_probability_pruning", true, allocator);
+        config_val.AddMember("probability_prune_threshold",
+                             result.config.probability_prune_threshold, allocator);
+    }
+    if (result.config.enable_turn_yaku) {
+        config_val.AddMember("enable_turn_yaku", true, allocator);
+    }
     config_val.AddMember("t_min", result.config.t_min, allocator);
     config_val.AddMember("t_max", result.config.t_max, allocator);
     config_val.AddMember("sum", result.config.sum, allocator);
     config_val.AddMember("extra", result.config.extra, allocator);
     config_val.AddMember("shanten_type", result.config.shanten_type, allocator);
     config_val.AddMember("calc_stats", result.config.calc_stats, allocator);
+    if (result.config.ron_rate != 0.0) {
+        config_val.AddMember("ron_rate", result.config.ron_rate, allocator);
+    }
+    if (result.config.remaining_tiles >= 0) {
+        config_val.AddMember("remaining_tiles", result.config.remaining_tiles,
+                             allocator);
+    }
+    if (result.config.enable_other_win_stop) {
+        config_val.AddMember("enable_other_win_stop", true, allocator);
+        rapidjson::Value other_win_hazard(rapidjson::kArrayType);
+        for (int turn = 1; turn <= 18; ++turn) {
+            other_win_hazard.PushBack(result.config.other_win_hazard[turn],
+                                      allocator);
+        }
+        config_val.AddMember("other_win_hazard", other_win_hazard, allocator);
+    }
+    if (result.config.calc_yaku_stats) {
+        config_val.AddMember("calc_yaku_stats", true, allocator);
+    }
+    if (result.config.calc_shapley_stats) {
+        config_val.AddMember("calc_shapley_stats", true, allocator);
+    }
+    if (result.config.calc_yaku_stats || result.config.calc_shapley_stats) {
+        config_val.AddMember("yaku_filter", result.config.yaku_filter, allocator);
+    }
+    if (result.config.state_tag != 0) {
+        config_val.AddMember("state_tag", result.config.state_tag, allocator);
+    }
     config_val.AddMember(
         "num_tiles", req.player.num_tiles() + req.player.num_melds() * 3, allocator);
     doc.AddMember("config", config_val, allocator);

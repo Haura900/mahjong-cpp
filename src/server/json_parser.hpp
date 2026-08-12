@@ -13,6 +13,7 @@ struct Request
     mahjong::TableState table_state;
     mahjong::PlayerState player;
     mahjong::MergedCount wall;
+    bool calc_stats_explicit = false;
     std::string ip;
     std::string version;
 };

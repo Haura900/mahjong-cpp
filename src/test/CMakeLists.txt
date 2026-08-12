@@ -13,7 +13,9 @@ else()
   message(STATUS "Use fetched Catch2")
 endif()
 
-file(GLOB_RECURSE SRC_FILES ../mahjong/*.cpp ../compare/*.cpp ../server/json_parser.cpp ../server/request_processor.cpp ../server/server.cpp)
+file(GLOB_RECURSE SRC_FILES ../mahjong/*.cpp ../compare/*.cpp)
+set(SERVER_TEST_SRC ../server/json_parser.cpp ../server/request_processor.cpp
+                    ../server/server.cpp)
 set(CMAKE_TESTCASE_DIR ${CMAKE_SOURCE_DIR}/data/testcase)
 add_definitions("-DCMAKE_TESTCASE_DIR=\"${CMAKE_TESTCASE_DIR}\"")
 
@@ -25,8 +27,18 @@ add_custom_target(copy_test_config
 file(GLOB_RECURSE ENTRY_FILES ${CMAKE_CURRENT_SOURCE_DIR}/test_*.cpp)
 foreach(ENTRY_FILE ${ENTRY_FILES})
   get_filename_component(EXE_NAME ${ENTRY_FILE} NAME_WE)
-  add_executable(${EXE_NAME} ${SRC_FILES} ${ENTRY_FILE})
+  set(EXTRA_SRC)
+  if(EXE_NAME STREQUAL "test_server")
+    set(EXTRA_SRC ${SERVER_TEST_SRC})
+  elseif(EXE_NAME STREQUAL "test_json_parser")
+    set(EXTRA_SRC ../server/json_parser.cpp ../server/request_processor.cpp)
+  endif()
+  add_executable(${EXE_NAME} ${SRC_FILES} ${EXTRA_SRC} ${ENTRY_FILE})
   add_dependencies(${EXE_NAME} ${LIB_NAME} copy_test_config)
+  add_custom_command(TARGET ${EXE_NAME} POST_BUILD
+                     COMMAND ${CMAKE_COMMAND} -E copy_directory
+                     ${CMAKE_SOURCE_DIR}/data/config/
+                     $<TARGET_FILE_DIR:${EXE_NAME}>)
   target_compile_definitions(${EXE_NAME} PRIVATE MAHJONG_CPP_DISABLE_SERVER_MAIN)
   if (MSVC)
     target_link_libraries(${EXE_NAME} ${LIB_NAME} ${CMAKE_DL_LIBS}

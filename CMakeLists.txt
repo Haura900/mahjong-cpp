@@ -88,11 +88,11 @@ endif()
 
 # Build mahjong-cpp
 
-# Set stack size to 100MB.
+# Deep-shanten state enumeration is recursive. Reserve enough virtual stack for it.
 if (MSVC)
-  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /STACK:104857600")
-elseif(CMAKE_C_COMPILER_ID STREQUAL "GNU")
-  #set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--stack,104857600")
+  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /STACK:268435456")
+elseif(WIN32)
+  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--stack,268435456")
 endif()
 
 include_directories(src)

@@ -15,6 +15,7 @@
 
 #include "mahjong/mahjong.hpp"
 #include "server/json_parser.hpp"
+#include "server/request_processor.hpp"
 
 using namespace mahjong;
 
@@ -397,6 +398,65 @@ TEST_CASE("deserialize_request maps validated JSON to Request")
         REQUIRE(req.wall == expected_wall);
         REQUIRE(req.ip.empty());
     }
+
+    SECTION("maps optional expected-score extensions")
+    {
+        rapidjson::Document doc;
+        parse_json(make_request_json([](rapidjson::Document &request) {
+                       auto &allocator = request.GetAllocator();
+                       request.AddMember("t_min", 2, allocator);
+                       request.AddMember("t_max", 9, allocator);
+                       request.AddMember("extra", 0, allocator);
+                       request.AddMember("calc_stats", true, allocator);
+                       request.AddMember("enable_riichi", false, allocator);
+                       request.AddMember("enable_calls", true, allocator);
+                       request.AddMember("enable_probability_pruning", true,
+                                         allocator);
+                       request.AddMember("probability_prune_threshold", 0.0002,
+                                         allocator);
+                       request.AddMember("enable_turn_yaku", true, allocator);
+                       request.AddMember("auto_disable_deep_search", false, allocator);
+                       request.AddMember("ron_rate", 0.7, allocator);
+                       request.AddMember("remaining_tiles", 22, allocator);
+                       request.AddMember("enable_other_win_stop", true, allocator);
+                       rapidjson::Value hazards(rapidjson::kArrayType);
+                       for (int turn = 1; turn <= 18; ++turn) {
+                           hazards.PushBack(turn / 100.0, allocator);
+                       }
+                       request.AddMember("other_win_hazard", hazards, allocator);
+                       request.AddMember("calc_yaku_stats", true, allocator);
+                       request.AddMember("calc_shapley_stats", true, allocator);
+                       request.AddMember(
+                           "yaku_filter",
+                           static_cast<std::uint64_t>(Yaku::Pinfu | Yaku::Tanyao),
+                           allocator);
+                       request.AddMember("state_tag", 12, allocator);
+                   }),
+                   doc);
+
+        const Request req = deserialize_request(doc);
+        CHECK(req.config.t_min == 2);
+        CHECK(req.config.t_max == 9);
+        CHECK(req.config.extra == 0);
+        CHECK(req.config.calc_stats);
+        CHECK_FALSE(req.config.enable_riichi);
+        CHECK(req.config.enable_calls);
+        CHECK(req.config.enable_probability_pruning);
+        CHECK(req.config.probability_prune_threshold == Approx(0.0002));
+        CHECK(req.config.enable_turn_yaku);
+        CHECK_FALSE(req.config.auto_disable_deep_search);
+        CHECK(req.calc_stats_explicit);
+        CHECK(req.config.ron_rate == Approx(0.7));
+        CHECK(req.config.remaining_tiles == 22);
+        CHECK(req.config.enable_other_win_stop);
+        CHECK(req.config.other_win_hazard[1] == Approx(0.01));
+        CHECK(req.config.other_win_hazard[17] == Approx(0.17));
+        CHECK(req.config.other_win_hazard[18] == Approx(0.17));
+        CHECK(req.config.calc_yaku_stats);
+        CHECK(req.config.calc_shapley_stats);
+        CHECK(req.config.yaku_filter == (Yaku::Pinfu | Yaku::Tanyao));
+        CHECK(req.config.state_tag == 12);
+    }
 }
 
 TEST_CASE("deserialize_request rejects inconsistent tile counts")
@@ -596,6 +656,33 @@ TEST_CASE("build_error_response creates a schema-compliant error document")
     validate_response_schema(doc);
 }
 
+TEST_CASE("four shanten and deeper disable search expansion options")
+{
+    Request req = make_sample_request();
+    req.player.hand = from_array(
+        {Tile::Manzu1, Tile::Manzu4, Tile::Manzu7, Tile::Pinzu1, Tile::Pinzu4,
+         Tile::Pinzu7, Tile::Souzu1, Tile::Souzu4, Tile::Souzu7, Tile::East,
+         Tile::South, Tile::West, Tile::North, Tile::WhiteDragon});
+    req.wall = create_wall(req.table_config, req.table_state, req.player,
+                           req.config.enable_reddora);
+    req.config.calc_stats = false;
+    req.calc_stats_explicit = true;
+    req.config.enable_shanten_down = true;
+    req.config.enable_tegawari = true;
+
+    const CalculationResult result = calculate_result(req);
+
+    REQUIRE(result.shanten >= 4);
+    REQUIRE_FALSE(result.config.enable_shanten_down);
+    REQUIRE_FALSE(result.config.enable_tegawari);
+
+    req.config.auto_disable_deep_search = false;
+    const CalculationResult opted_out = calculate_result(req);
+    REQUIRE(opted_out.shanten >= 4);
+    REQUIRE(opted_out.config.enable_shanten_down);
+    REQUIRE(opted_out.config.enable_tegawari);
+}
+
 TEST_CASE("build_success_response serializes red fives without duplicate normal fives")
 {
     Request req = make_sample_request();
@@ -614,6 +701,58 @@ TEST_CASE("build_success_response serializes red fives without duplicate normal 
         to_int_vector(doc["input"]["hand"]) ==
         std::vector<int>({Tile::Manzu1, Tile::Manzu2, Tile::Manzu3, Tile::Pinzu5,
                           Tile::Souzu1, Tile::Souzu2, Tile::Souzu3, Tile::RedPinzu5}));
+}
+
+TEST_CASE("build_success_response serializes optional yaku contributions")
+{
+    const Request req = make_sample_request();
+    CalculationResult result = make_sample_result();
+    result.config.ron_rate = 0.7;
+    result.config.remaining_tiles = 22;
+    result.config.enable_other_win_stop = true;
+    result.config.other_win_hazard[17] = 0.117;
+    result.config.other_win_hazard[18] = 0.117;
+    result.config.calc_yaku_stats = true;
+    result.config.calc_shapley_stats = true;
+    result.config.enable_turn_yaku = true;
+    result.config.enable_calls = true;
+    result.config.enable_probability_pruning = true;
+    result.config.probability_prune_threshold = 0.0002;
+    result.config.yaku_filter = Yaku::Pinfu | Yaku::Tanyao;
+    result.stats[0].yaku_stats = {
+        {Yaku::Pinfu,
+         {0.0, 0.125},
+         {0.0, 1200.0},
+         {0.0, 400.0},
+         {0.0, 800.0}}};
+
+    rapidjson::Document doc;
+    build_success_response(req, result, doc);
+
+    REQUIRE(doc["config"]["ron_rate"].GetDouble() == Approx(0.7));
+    REQUIRE(doc["config"]["remaining_tiles"].GetInt() == 22);
+    REQUIRE(doc["config"]["enable_other_win_stop"].GetBool());
+    REQUIRE(doc["config"]["other_win_hazard"].Size() == 18);
+    REQUIRE(doc["config"]["other_win_hazard"][16].GetDouble() == Approx(0.117));
+    REQUIRE(doc["config"]["other_win_hazard"][17].GetDouble() == Approx(0.117));
+    REQUIRE(doc["config"]["calc_yaku_stats"].GetBool());
+    REQUIRE(doc["config"]["calc_shapley_stats"].GetBool());
+    REQUIRE(doc["config"]["enable_turn_yaku"].GetBool());
+    REQUIRE(doc["config"]["enable_calls"].GetBool());
+    REQUIRE(doc["config"]["enable_probability_pruning"].GetBool());
+    REQUIRE(doc["config"]["probability_prune_threshold"].GetDouble() ==
+            Approx(0.0002));
+    REQUIRE(doc["stats"][0]["yaku_stats"].Size() == 1);
+    REQUIRE(doc["stats"][0]["yaku_stats"][0]["yaku"].GetUint64() == Yaku::Pinfu);
+    REQUIRE(to_double_vector(doc["stats"][0]["yaku_stats"][0]["occurrence_prob"]) ==
+            std::vector<double>({0.0, 0.125}));
+    REQUIRE(to_double_vector(doc["stats"][0]["yaku_stats"][0]["inclusive_score"]) ==
+            std::vector<double>({0.0, 1200.0}));
+    REQUIRE(to_double_vector(doc["stats"][0]["yaku_stats"][0]["marginal_score"]) ==
+            std::vector<double>({0.0, 400.0}));
+    REQUIRE(to_double_vector(doc["stats"][0]["yaku_stats"][0]["shapley_score"]) ==
+            std::vector<double>({0.0, 800.0}));
+    validate_response_schema(doc);
 }
 
 TEST_CASE("build_success_response creates a schema-compliant success document")
@@ -647,11 +786,12 @@ TEST_CASE("build_success_response creates a schema-compliant success document")
     REQUIRE(input["wall"].Size() == 37);
 
     const rapidjson::Value &config = doc["config"];
-    REQUIRE(config.MemberCount() == 11);
+    REQUIRE(config.MemberCount() == 13);
     REQUIRE(config["enable_reddora"].GetBool());
     REQUIRE_FALSE(config["enable_uradora"].GetBool());
     REQUIRE(config["enable_shanten_down"].GetBool());
     REQUIRE_FALSE(config["enable_tegawari"].GetBool());
+    REQUIRE(config["auto_disable_deep_search"].GetBool());
     REQUIRE(config["t_min"].GetInt() == 1);
     REQUIRE(config["t_max"].GetInt() == 18);
     REQUIRE(config["sum"].GetInt() == 62);

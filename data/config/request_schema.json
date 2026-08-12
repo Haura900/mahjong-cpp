@@ -54,6 +54,82 @@
     "enable_tegawari": {
       "type": "boolean"
     },
+    "auto_disable_deep_search": {
+      "type": "boolean"
+    },
+    "enable_riichi": {
+      "type": "boolean"
+    },
+    "enable_calls": {
+      "type": "boolean"
+    },
+    "enable_probability_pruning": {
+      "type": "boolean"
+    },
+    "probability_prune_threshold": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "maximum": 1
+    },
+    "enable_turn_yaku": {
+      "type": "boolean"
+    },
+    "t_min": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 18
+    },
+    "t_max": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 18
+    },
+    "extra": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 2
+    },
+    "calc_stats": {
+      "type": "boolean"
+    },
+    "ron_rate": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "remaining_tiles": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 70
+    },
+    "enable_other_win_stop": {
+      "type": "boolean"
+    },
+    "other_win_hazard": {
+      "type": "array",
+      "minItems": 18,
+      "maxItems": 18,
+      "items": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 1
+      }
+    },
+    "calc_yaku_stats": {
+      "type": "boolean"
+    },
+    "calc_shapley_stats": {
+      "type": "boolean"
+    },
+    "yaku_filter": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "state_tag": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 255
+    },
     "hand": {
       "type": "array",
       "items": {

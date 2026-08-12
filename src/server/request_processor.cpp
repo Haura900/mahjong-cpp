@@ -10,14 +10,8 @@ CalculationResult calculate_result(const Request &req)
 {
     CalculationResult result;
 
-    result.config.enable_reddora = req.config.enable_reddora;
-    result.config.enable_uradora = req.config.enable_uradora;
-    result.config.enable_shanten_down = req.config.enable_shanten_down;
-    result.config.enable_tegawari = req.config.enable_tegawari;
-    result.config.t_min = 1;
-    result.config.t_max = 18;
+    result.config = req.config;
     result.config.sum = std::accumulate(req.wall.begin(), req.wall.begin() + 34, 0);
-    result.config.extra = 1;
     result.config.shanten_type = ShantenFlag::All;
     result.shanten = std::get<1>(
         ShantenCalculator::calc(req.player.hand, req.player.num_melds(),
@@ -31,8 +25,13 @@ CalculationResult calculate_result(const Request &req)
     result.thirteen_orphans_shanten = std::get<1>(ShantenCalculator::calc(
         req.player.hand, req.player.num_melds(), ShantenFlag::ThirteenOrphans,
         req.table_config.game_mode));
-    result.config.calc_stats = result.shanten <= 3;
-
+    if (result.config.auto_disable_deep_search && result.shanten >= 4) {
+        result.config.enable_shanten_down = false;
+        result.config.enable_tegawari = false;
+    }
+    if (!req.calc_stats_explicit) {
+        result.config.calc_stats = result.shanten <= 3;
+    }
     if (result.shanten == -1) {
         throw std::runtime_error(u8"手牌はすでに和了形です。");
     }
