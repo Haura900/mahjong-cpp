@@ -1117,8 +1117,10 @@ ExpectedScoreCalculator::GraphBuilder::draw_node(const std::uint8_t riichi_state
 
     const bool can_extend_search =
         exchange_distance_ + shanten < shanten_org_ + config_.extra;
+    const bool after_dynamic_call = player_.num_melds() > initial_meld_count_;
     const bool allow_tegawari =
-        config_.enable_tegawari && riichi_state == NoRiichi && can_extend_search;
+        config_.enable_tegawari && !after_dynamic_call &&
+        riichi_state == NoRiichi && can_extend_search;
     wait = add_red5_flags(wait);
 
     const Vertex vertex = graph_.add_vertex();
@@ -1208,8 +1210,10 @@ ExpectedScoreCalculator::GraphBuilder::discard_node(const std::uint8_t riichi_st
 
     const bool can_extend_search =
         exchange_distance_ + shanten < shanten_org_ + config_.extra;
+    const bool after_dynamic_call = player_.num_melds() > initial_meld_count_;
     const bool allow_shanten_down =
-        config_.enable_shanten_down && riichi_state == NoRiichi && can_extend_search;
+        config_.enable_shanten_down && !after_dynamic_call &&
+        riichi_state == NoRiichi && can_extend_search;
     disc = add_red5_flags(disc);
 
     const Vertex vertex = graph_.add_vertex();

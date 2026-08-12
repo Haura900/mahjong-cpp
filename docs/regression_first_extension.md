@@ -111,7 +111,9 @@ expected-score continuation. Meld contents are part of the cache identity.
 the option disabled no call states are built, preserving the legacy graph and
 results. To keep this first expansion interactive, at most one new call is
 added on each simulated path; melds already present at the input remain fully
-represented.
+represented. Shanten-down and tegawari expansion are disabled after that
+dynamic call; effective draws and optimal mandatory/future discards remain in
+the graph.
 
 For a terminal result with role set `N`, the coalition value `v(S)` is the
 winner payment obtained when only the yaku/bonus categories in `S` contribute

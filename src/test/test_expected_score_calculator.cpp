@@ -351,6 +351,25 @@ TEST_CASE("first call excludes ryanmen chi but keeps penchan chi")
     CHECK(penchan_call_searched > penchan_closed_searched);
 }
 
+TEST_CASE("dynamic call branches do not re-expand tegawari or shanten-down")
+{
+    Context context;
+    PlayerState player = player_for("237m13668p678s667z");
+    player.seat_wind = Tile::South;
+
+    ExpectedScoreCalculator::Config config;
+    config.enable_calls = true;
+    config.enable_shanten_down = true;
+    config.enable_tegawari = true;
+    config.extra = 1;
+    config.t_max = 4;
+    const auto [stats, searched] = ExpectedScoreCalculator::calc(
+        config, context.table_config, context.round, context.table, player);
+
+    REQUIRE_FALSE(stats.empty());
+    CHECK(searched < 100000);
+}
+
 TEST_CASE("exact Shapley allocation is efficient for every discard")
 {
     Context context;
