@@ -140,6 +140,25 @@ TEST_CASE("four-shanten state is calculated")
     }
 }
 
+TEST_CASE("large tegawari graph is built without recursive stack growth")
+{
+    Context context;
+    PlayerState player = player_for("347789m589p3s5677z");
+    ExpectedScoreCalculator::Config config;
+    config.t_max = 1;
+    config.enable_shanten_down = true;
+    config.enable_tegawari = true;
+
+    const auto [stats, searched] = ExpectedScoreCalculator::calc(
+        config, context.table_config, context.round, context.table, player);
+
+    CHECK(searched == 142884);
+    REQUIRE_FALSE(stats.empty());
+    for (const auto &stat : stats) {
+        CHECK(std::isfinite(stat.exp_score[1]));
+    }
+}
+
 TEST_CASE("exact DP reports yaku occurrence and additive Shapley contributions")
 {
     Context context;

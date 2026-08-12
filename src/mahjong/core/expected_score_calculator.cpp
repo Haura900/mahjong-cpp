@@ -870,10 +870,19 @@ class ExpectedScoreCalculator::GraphBuilder
     Vertex win_terminal_ = NoVertex;
     int dynamic_call_tile_ = Tile::Null;
 
-    void build_call_options(Vertex source, int source_shanten);
-    void add_call_option(Vertex source, int called_tile, int meld_type,
-                         const std::vector<int> &own_tiles, bool chi,
-                         int source_shanten);
+    struct CallSpec
+    {
+        int called_tile;
+        int meld_type;
+        std::array<int, 2> own_tiles;
+        bool chi;
+        int weight;
+    };
+
+    std::vector<CallSpec> enumerate_call_options() const;
+    void apply_call(const CallSpec &spec);
+    void undo_call(const CallSpec &spec);
+    Vertex build_node(bool draw, std::uint8_t riichi_state);
 
     Vertex win_terminal()
     {
@@ -884,77 +893,13 @@ class ExpectedScoreCalculator::GraphBuilder
     }
 };
 
-void ExpectedScoreCalculator::GraphBuilder::add_call_option(
-    const Vertex source, const int called_tile, const int meld_type,
-    const std::vector<int> &own_tiles, const bool chi, const int source_shanten)
+std::vector<ExpectedScoreCalculator::GraphBuilder::CallSpec>
+ExpectedScoreCalculator::GraphBuilder::enumerate_call_options() const
 {
-    if (chi && initially_closed_) {
-        const int called = Tile::to_normal(called_tile);
-        int sequence_start = called;
-        for (const int tile : own_tiles) {
-            sequence_start = std::min(sequence_start, Tile::to_normal(tile));
-        }
-        const bool ryanmen = (called == sequence_start && sequence_start % 9 != 6) ||
-                             (called == sequence_start + 2 && sequence_start % 9 != 0);
-        if (ryanmen) {
-            return;
-        }
-    }
-
-    const int weight = wall_counts_[called_tile];
-    if (weight <= 0) {
-        return;
-    }
-
-    for (const int tile : own_tiles) {
-        hand_key_.change_tile(tile, -1);
-        --hand_counts_[tile];
-        --player_.hand[Tile::to_normal(tile)];
-        if (Tile::is_red(tile)) {
-            --player_.hand[tile];
-        }
-    }
-    --wall_counts_[called_tile];
-    std::vector<int> meld_tiles = own_tiles;
-    meld_tiles.push_back(called_tile);
-    player_.melds.push_back(Meld{meld_type, meld_tiles, called_tile,
-                                 chi ? SeatType::Kamicha : SeatType::Toimen});
-    hand_key_.melds = meld_signature(player_.melds);
-    hand_mask_ = nonzero_mask(hand_counts_);
-    wall_mask_ = nonzero_mask(wall_counts_);
-
-    const auto [post_call_type, post_call_shanten, post_call_discards] =
-        UnnecessaryTileCalculator::calc(player_.hand, player_.num_melds(),
-                                        config_.shanten_type, table_config_.game_mode);
-    if (post_call_shanten < source_shanten) {
-        const int previous_dynamic_call_tile = dynamic_call_tile_;
-        dynamic_call_tile_ = called_tile;
-        const Vertex target = discard_node(NoRiichi);
-        dynamic_call_tile_ = previous_dynamic_call_tile;
-        call_options_.push_back(CallOption{source, target, called_tile, weight, chi});
-    }
-
-    player_.melds.pop_back();
-    ++wall_counts_[called_tile];
-    for (const int tile : own_tiles) {
-        hand_key_.change_tile(tile, 1);
-        ++hand_counts_[tile];
-        ++player_.hand[Tile::to_normal(tile)];
-        if (Tile::is_red(tile)) {
-            ++player_.hand[tile];
-        }
-    }
-    hand_key_.melds = meld_signature(player_.melds);
-    hand_mask_ = nonzero_mask(hand_counts_);
-    wall_mask_ = nonzero_mask(wall_counts_);
-}
-
-void ExpectedScoreCalculator::GraphBuilder::build_call_options(const Vertex source,
-                                                               const int source_shanten)
-{
+    std::vector<CallSpec> result;
     if (!config_.enable_calls || player_.num_melds() >= 4 ||
         player_.num_melds() > initial_meld_count_) {
-        return;
+        return result;
     }
 
     const auto concrete_tile_types = [this](const int normal) {
@@ -979,8 +924,11 @@ void ExpectedScoreCalculator::GraphBuilder::build_call_options(const Vertex sour
                 if (i == j && hand_counts_[same[i]] < 2) {
                     continue;
                 }
-                add_call_option(source, called_tile, MeldType::Pon, {same[i], same[j]},
-                                false, source_shanten);
+                result.push_back(CallSpec{called_tile,
+                                          MeldType::Pon,
+                                          {same[i], same[j]},
+                                          false,
+                                          wall_counts_[called_tile]});
             }
         }
 
@@ -1004,183 +952,365 @@ void ExpectedScoreCalculator::GraphBuilder::build_call_options(const Vertex sour
                 const auto second = concrete_tile_types(needed[1]);
                 for (const int a : first) {
                     for (const int b : second) {
-                        add_call_option(source, called_tile, MeldType::Chi, {a, b},
-                                        true, source_shanten);
+                        if (initially_closed_) {
+                            int actual_start = called;
+                            actual_start = std::min(actual_start, Tile::to_normal(a));
+                            actual_start = std::min(actual_start, Tile::to_normal(b));
+                            const bool ryanmen =
+                                (called == actual_start && actual_start % 9 != 6) ||
+                                (called == actual_start + 2 && actual_start % 9 != 0);
+                            if (ryanmen) {
+                                continue;
+                            }
+                        }
+                        result.push_back(CallSpec{called_tile,
+                                                  MeldType::Chi,
+                                                  {a, b},
+                                                  true,
+                                                  wall_counts_[called_tile]});
                     }
                 }
             }
         }
     }
+    return result;
+}
+
+void ExpectedScoreCalculator::GraphBuilder::apply_call(const CallSpec &spec)
+{
+    for (const int tile : spec.own_tiles) {
+        hand_key_.change_tile(tile, -1);
+        --hand_counts_[tile];
+        --player_.hand[Tile::to_normal(tile)];
+        if (Tile::is_red(tile)) {
+            --player_.hand[tile];
+        }
+    }
+    --wall_counts_[spec.called_tile];
+    std::vector<int> meld_tiles(spec.own_tiles.begin(), spec.own_tiles.end());
+    meld_tiles.push_back(spec.called_tile);
+    player_.melds.push_back(Meld{spec.meld_type, meld_tiles, spec.called_tile,
+                                 spec.chi ? SeatType::Kamicha : SeatType::Toimen});
+    hand_key_.melds = meld_signature(player_.melds);
+    hand_mask_ = nonzero_mask(hand_counts_);
+    wall_mask_ = nonzero_mask(wall_counts_);
+}
+
+void ExpectedScoreCalculator::GraphBuilder::undo_call(const CallSpec &spec)
+{
+    player_.melds.pop_back();
+    ++wall_counts_[spec.called_tile];
+    for (const int tile : spec.own_tiles) {
+        hand_key_.change_tile(tile, 1);
+        ++hand_counts_[tile];
+        ++player_.hand[Tile::to_normal(tile)];
+        if (Tile::is_red(tile)) {
+            ++player_.hand[tile];
+        }
+    }
+    hand_key_.melds = meld_signature(player_.melds);
+    hand_mask_ = nonzero_mask(hand_counts_);
+    wall_mask_ = nonzero_mask(wall_counts_);
 }
 
 ExpectedScoreCalculator::Vertex
 ExpectedScoreCalculator::GraphBuilder::draw_node(const std::uint8_t riichi_state)
 {
-    const CacheKey key = hand_key_.with_riichi_state(riichi_state);
-    if (const auto itr = cache1_.find(key); itr != cache1_.end()) {
-        return itr->second;
-    }
-
-    auto [type, shanten, wait] =
-        NecessaryTileCalculator::calc(player_.hand, player_.num_melds(),
-                                      config_.shanten_type, table_config_.game_mode);
-
-    const bool can_extend_search =
-        exchange_distance_ + shanten < shanten_org_ + config_.extra;
-    const bool after_dynamic_call = player_.num_melds() > initial_meld_count_;
-    const bool allow_tegawari = config_.enable_tegawari && !after_dynamic_call &&
-                                riichi_state == NoRiichi && can_extend_search;
-    wait = add_red5_flags(wait);
-
-    const Vertex vertex = graph_.add_vertex();
-    graph_[vertex].is_tenpai = shanten == 0;
-    graph_[vertex].has_open_meld = !player_.is_closed();
-    graph_[vertex].dynamic_called = player_.num_melds() > initial_meld_count_;
-    graph_[vertex].dynamic_call_tile = static_cast<std::int8_t>(dynamic_call_tile_);
-    cache1_[key] = vertex;
-    draw_vertices_.push_back(vertex);
-
-    if (riichi_state == NoRiichi) {
-        build_call_options(vertex, shanten);
-    }
-
-    // The upstream graph omits non-effective draws as self-loops. That is valid for
-    // ordinary states, but a miss on the first draw after riichi must consume
-    // ippatsu. Build the same-hand established-riichi state as that expiry target.
-    if (config_.enable_turn_yaku && riichi_state == IppatsuEligible) {
-        ippatsu_expiries_.emplace_back(vertex, draw_node(RiichiEstablished));
-    }
-
-    std::uint64_t candidates = allow_tegawari ? wall_mask_ : wall_mask_ & wait;
-    while (candidates) {
-        const int i = first_tile(candidates);
-        candidates &= candidates - 1;
-        const bool is_wait = wait & (1LL << i);
-
-        {
-            const int weight = wall_counts_[i];
-
-            draw_tile(i);
-
-            // After riichi, non-winning tiles are represented by the implicit
-            // self-loop (or the ippatsu-expiry transition above). A winning draw
-            // is terminal, so no post-riichi hand change or repeated riichi can
-            // enter the graph.
-            if (config_.enable_turn_yaku && riichi_state != NoRiichi && shanten == 0 &&
-                is_wait) {
-                const auto score = calc_score_data(
-                    config_, table_config_, round_state_, table_state_, player_,
-                    hand_counts_, wall_counts_, type, i, riichi_state, false);
-                const auto last_score = calc_score_data(
-                    config_, table_config_, round_state_, table_state_, player_,
-                    hand_counts_, wall_counts_, type, i, riichi_state, true);
-                graph_.add_edge(vertex, win_terminal(), weight, score, last_score);
-                discard_tile(i);
-                continue;
-            }
-
-            const Vertex target = discard_node(riichi_state);
-
-            if (!graph_.has_edge(vertex, target)) {
-                // 自摸前の時点で聴牌の場合、有効牌自摸後は和了形のため、点数計算を行う
-                ScoreData score, last_score;
-                if (shanten == 0 && is_wait) {
-                    score = calc_score_data(config_, table_config_, round_state_,
-                                            table_state_, player_, hand_counts_,
-                                            wall_counts_, type, i, riichi_state, false);
-                    if (config_.enable_turn_yaku) {
-                        last_score = calc_score_data(
-                            config_, table_config_, round_state_, table_state_, player_,
-                            hand_counts_, wall_counts_, type, i, riichi_state, true);
-                    }
-                    else {
-                        last_score = score;
-                    }
-                }
-                graph_.add_edge(vertex, target, weight, score, last_score);
-            }
-
-            discard_tile(i);
-        }
-    }
-
-    return vertex;
+    return build_node(true, riichi_state);
 }
 
 ExpectedScoreCalculator::Vertex
 ExpectedScoreCalculator::GraphBuilder::discard_node(const std::uint8_t riichi_state)
 {
-    const CacheKey key = hand_key_.with_riichi_state(riichi_state);
-    if (const auto itr = cache2_.find(key); itr != cache2_.end()) {
-        return itr->second;
-    }
+    return build_node(false, riichi_state);
+}
 
-    auto [type, shanten, disc] =
-        UnnecessaryTileCalculator::calc(player_.hand, player_.num_melds(),
-                                        config_.shanten_type, table_config_.game_mode);
+ExpectedScoreCalculator::Vertex
+ExpectedScoreCalculator::GraphBuilder::build_node(const bool draw,
+                                                  const std::uint8_t riichi_state)
+{
+    enum class Stage : std::uint8_t
+    {
+        Init,
+        DrawCallNext,
+        DrawCallResume,
+        DrawIppatsu,
+        DrawIppatsuResume,
+        DrawNext,
+        DrawResume,
+        DiscardNext,
+        DiscardResume,
+    };
 
-    const bool can_extend_search =
-        exchange_distance_ + shanten < shanten_org_ + config_.extra;
-    const bool after_dynamic_call = player_.num_melds() > initial_meld_count_;
-    const bool allow_shanten_down = config_.enable_shanten_down &&
-                                    !after_dynamic_call && riichi_state == NoRiichi &&
-                                    can_extend_search;
-    disc = add_red5_flags(disc);
+    struct Frame
+    {
+        bool draw;
+        std::uint8_t riichi_state;
+        Stage stage = Stage::Init;
+        Vertex vertex = NoVertex;
+        int type = 0;
+        int shanten = 0;
+        std::uint64_t flags = 0;
+        std::uint64_t candidates = 0;
+        int tile = Tile::Null;
+        int weight = 0;
+        bool selected = false;
+        std::uint8_t next_riichi_state = NoRiichi;
+        std::vector<CallSpec> calls;
+        std::size_t call_index = 0;
+        int previous_dynamic_call_tile = Tile::Null;
+    };
 
-    const Vertex vertex = graph_.add_vertex();
-    graph_[vertex].is_tenpai = shanten == 0;
-    graph_[vertex].has_open_meld = !player_.is_closed();
-    graph_[vertex].dynamic_called = player_.num_melds() > initial_meld_count_;
-    graph_[vertex].dynamic_call_tile = static_cast<std::int8_t>(dynamic_call_tile_);
-    cache2_[key] = vertex;
-    discard_vertices_.push_back(vertex);
+    std::vector<Frame> stack;
+    stack.reserve(256);
+    stack.push_back(Frame{draw, riichi_state});
+    Vertex completed = NoVertex;
 
-    std::uint64_t candidates = allow_shanten_down ? hand_mask_ : hand_mask_ & disc;
-    while (candidates) {
-        const int i = first_tile(candidates);
-        candidates &= candidates - 1;
-        const bool is_disc = disc & (1LL << i);
+    while (!stack.empty()) {
+        Frame &frame = stack.back();
 
-        {
-            std::uint8_t next_riichi_state = riichi_state;
-            if (riichi_state == IppatsuEligible) {
-                next_riichi_state = RiichiEstablished;
+        if (frame.stage == Stage::Init) {
+            Cache &cache = frame.draw ? cache1_ : cache2_;
+            const CacheKey key = hand_key_.with_riichi_state(frame.riichi_state);
+            if (const auto itr = cache.find(key); itr != cache.end()) {
+                completed = itr->second;
+                stack.pop_back();
+                continue;
             }
-            if (riichi_state == NoRiichi && config_.enable_riichi &&
-                player_.is_closed() && shanten == 0 && is_disc) {
-                next_riichi_state =
-                    config_.enable_turn_yaku ? IppatsuEligible : RiichiEstablished;
+
+            if (frame.draw) {
+                auto [type, shanten, wait] = NecessaryTileCalculator::calc(
+                    player_.hand, player_.num_melds(), config_.shanten_type,
+                    table_config_.game_mode);
+                frame.type = type;
+                frame.shanten = shanten;
+                frame.flags = add_red5_flags(wait);
+
+                const bool can_extend_search =
+                    exchange_distance_ + shanten < shanten_org_ + config_.extra;
+                const bool after_dynamic_call =
+                    player_.num_melds() > initial_meld_count_;
+                const bool allow_tegawari =
+                    config_.enable_tegawari && !after_dynamic_call &&
+                    frame.riichi_state == NoRiichi && can_extend_search;
+                frame.candidates =
+                    allow_tegawari ? wall_mask_ : wall_mask_ & frame.flags;
+
+                frame.vertex = graph_.add_vertex();
+                graph_[frame.vertex].is_tenpai = shanten == 0;
+                graph_[frame.vertex].has_open_meld = !player_.is_closed();
+                graph_[frame.vertex].dynamic_called = after_dynamic_call;
+                graph_[frame.vertex].dynamic_call_tile =
+                    static_cast<std::int8_t>(dynamic_call_tile_);
+                cache[key] = frame.vertex;
+                draw_vertices_.push_back(frame.vertex);
+
+                if (frame.riichi_state == NoRiichi) {
+                    frame.calls = enumerate_call_options();
+                    frame.stage = Stage::DrawCallNext;
+                }
+                else {
+                    frame.stage = Stage::DrawIppatsu;
+                }
+            }
+            else {
+                auto [type, shanten, disc] = UnnecessaryTileCalculator::calc(
+                    player_.hand, player_.num_melds(), config_.shanten_type,
+                    table_config_.game_mode);
+                frame.type = type;
+                frame.shanten = shanten;
+                frame.flags = add_red5_flags(disc);
+
+                const bool can_extend_search =
+                    exchange_distance_ + shanten < shanten_org_ + config_.extra;
+                const bool after_dynamic_call =
+                    player_.num_melds() > initial_meld_count_;
+                const bool allow_shanten_down =
+                    config_.enable_shanten_down && !after_dynamic_call &&
+                    frame.riichi_state == NoRiichi && can_extend_search;
+                frame.candidates =
+                    allow_shanten_down ? hand_mask_ : hand_mask_ & frame.flags;
+
+                frame.vertex = graph_.add_vertex();
+                graph_[frame.vertex].is_tenpai = shanten == 0;
+                graph_[frame.vertex].has_open_meld = !player_.is_closed();
+                graph_[frame.vertex].dynamic_called = after_dynamic_call;
+                graph_[frame.vertex].dynamic_call_tile =
+                    static_cast<std::int8_t>(dynamic_call_tile_);
+                cache[key] = frame.vertex;
+                discard_vertices_.push_back(frame.vertex);
+                frame.stage = Stage::DiscardNext;
+            }
+            continue;
+        }
+
+        if (frame.stage == Stage::DrawCallNext) {
+            if (frame.call_index >= frame.calls.size()) {
+                std::vector<CallSpec>().swap(frame.calls);
+                frame.stage = Stage::DrawIppatsu;
+                continue;
             }
 
-            discard_tile(i);
+            const CallSpec &spec = frame.calls[frame.call_index];
+            apply_call(spec);
+            const int post_call_shanten = std::get<1>(UnnecessaryTileCalculator::calc(
+                player_.hand, player_.num_melds(), config_.shanten_type,
+                table_config_.game_mode));
+            if (post_call_shanten >= frame.shanten) {
+                undo_call(spec);
+                ++frame.call_index;
+                continue;
+            }
 
-            const int weight = wall_counts_[i];
-            const Vertex source = draw_node(next_riichi_state);
+            frame.previous_dynamic_call_tile = dynamic_call_tile_;
+            dynamic_call_tile_ = spec.called_tile;
+            frame.stage = Stage::DrawCallResume;
+            stack.push_back(Frame{false, NoRiichi});
+            continue;
+        }
 
-            draw_tile(i);
+        if (frame.stage == Stage::DrawCallResume) {
+            const CallSpec &spec = frame.calls[frame.call_index];
+            call_options_.push_back(CallOption{
+                frame.vertex, completed, spec.called_tile, spec.weight, spec.chi});
+            dynamic_call_tile_ = frame.previous_dynamic_call_tile;
+            undo_call(spec);
+            ++frame.call_index;
+            frame.stage = Stage::DrawCallNext;
+            continue;
+        }
 
-            if (!graph_.has_edge(source, vertex)) {
-                // 打牌前の時点で向聴数が-1の場合、和了形のため、点数計算を行う
+        if (frame.stage == Stage::DrawIppatsu) {
+            if (config_.enable_turn_yaku && frame.riichi_state == IppatsuEligible) {
+                frame.stage = Stage::DrawIppatsuResume;
+                stack.push_back(Frame{true, RiichiEstablished});
+            }
+            else {
+                frame.stage = Stage::DrawNext;
+            }
+            continue;
+        }
+
+        if (frame.stage == Stage::DrawIppatsuResume) {
+            ippatsu_expiries_.emplace_back(frame.vertex, completed);
+            frame.stage = Stage::DrawNext;
+            continue;
+        }
+
+        if (frame.stage == Stage::DrawNext) {
+            if (frame.candidates == 0) {
+                completed = frame.vertex;
+                stack.pop_back();
+                continue;
+            }
+
+            frame.tile = first_tile(frame.candidates);
+            frame.candidates &= frame.candidates - 1;
+            frame.selected = (frame.flags & (std::uint64_t{1} << frame.tile)) != 0;
+            frame.weight = wall_counts_[frame.tile];
+            draw_tile(frame.tile);
+
+            if (config_.enable_turn_yaku && frame.riichi_state != NoRiichi &&
+                frame.shanten == 0 && frame.selected) {
+                const auto score =
+                    calc_score_data(config_, table_config_, round_state_, table_state_,
+                                    player_, hand_counts_, wall_counts_, frame.type,
+                                    frame.tile, frame.riichi_state, false);
+                const auto last_score =
+                    calc_score_data(config_, table_config_, round_state_, table_state_,
+                                    player_, hand_counts_, wall_counts_, frame.type,
+                                    frame.tile, frame.riichi_state, true);
+                graph_.add_edge(frame.vertex, win_terminal(), frame.weight, score,
+                                last_score);
+                discard_tile(frame.tile);
+                continue;
+            }
+
+            frame.stage = Stage::DrawResume;
+            stack.push_back(Frame{false, frame.riichi_state});
+            continue;
+        }
+
+        if (frame.stage == Stage::DrawResume) {
+            if (!graph_.has_edge(frame.vertex, completed)) {
                 ScoreData score, last_score;
-                if (shanten == -1) {
+                if (frame.shanten == 0 && frame.selected) {
                     score = calc_score_data(config_, table_config_, round_state_,
                                             table_state_, player_, hand_counts_,
-                                            wall_counts_, type, i, riichi_state, false);
+                                            wall_counts_, frame.type, frame.tile,
+                                            frame.riichi_state, false);
                     if (config_.enable_turn_yaku) {
                         last_score = calc_score_data(
                             config_, table_config_, round_state_, table_state_, player_,
-                            hand_counts_, wall_counts_, type, i, riichi_state, true);
+                            hand_counts_, wall_counts_, frame.type, frame.tile,
+                            frame.riichi_state, true);
                     }
                     else {
                         last_score = score;
                     }
                 }
-                graph_.add_edge(source, vertex, weight, score, last_score);
+                graph_.add_edge(frame.vertex, completed, frame.weight, score,
+                                last_score);
             }
+            discard_tile(frame.tile);
+            frame.stage = Stage::DrawNext;
+            continue;
+        }
+
+        if (frame.stage == Stage::DiscardNext) {
+            if (frame.candidates == 0) {
+                completed = frame.vertex;
+                stack.pop_back();
+                continue;
+            }
+
+            frame.tile = first_tile(frame.candidates);
+            frame.candidates &= frame.candidates - 1;
+            frame.selected = (frame.flags & (std::uint64_t{1} << frame.tile)) != 0;
+            frame.next_riichi_state = frame.riichi_state;
+            if (frame.riichi_state == IppatsuEligible) {
+                frame.next_riichi_state = RiichiEstablished;
+            }
+            if (frame.riichi_state == NoRiichi && config_.enable_riichi &&
+                player_.is_closed() && frame.shanten == 0 && frame.selected) {
+                frame.next_riichi_state =
+                    config_.enable_turn_yaku ? IppatsuEligible : RiichiEstablished;
+            }
+
+            discard_tile(frame.tile);
+            frame.weight = wall_counts_[frame.tile];
+            frame.stage = Stage::DiscardResume;
+            stack.push_back(Frame{true, frame.next_riichi_state});
+            continue;
+        }
+
+        if (frame.stage == Stage::DiscardResume) {
+            const Vertex source = completed;
+            draw_tile(frame.tile);
+            if (!graph_.has_edge(source, frame.vertex)) {
+                ScoreData score, last_score;
+                if (frame.shanten == -1) {
+                    score = calc_score_data(config_, table_config_, round_state_,
+                                            table_state_, player_, hand_counts_,
+                                            wall_counts_, frame.type, frame.tile,
+                                            frame.riichi_state, false);
+                    if (config_.enable_turn_yaku) {
+                        last_score = calc_score_data(
+                            config_, table_config_, round_state_, table_state_, player_,
+                            hand_counts_, wall_counts_, frame.type, frame.tile,
+                            frame.riichi_state, true);
+                    }
+                    else {
+                        last_score = score;
+                    }
+                }
+                graph_.add_edge(source, frame.vertex, frame.weight, score, last_score);
+            }
+            frame.stage = Stage::DiscardNext;
         }
     }
 
-    return vertex;
+    return completed;
 }
 
 /**
