@@ -1271,7 +1271,7 @@ void ExpectedScoreCalculator::calc_stats(
         // (tsumo_share + ron_rate*p).
         return tsumo_probability / (tsumo_share + config.ron_rate * tsumo_probability);
     };
-    const auto expand_turn_value = [](double &value, const double tsumo_probability,
+    const auto expand_turn_value = [](auto &value, const double tsumo_probability,
                                       const double total_probability,
                                       const double win_value) {
         if (total_probability <= tsumo_probability || tsumo_probability >= 1.0) {
@@ -1279,7 +1279,8 @@ void ExpectedScoreCalculator::calc_stats(
         }
         const double miss_value =
             (value - tsumo_probability * win_value) / (1.0 - tsumo_probability);
-        value = total_probability * win_value + (1.0 - total_probability) * miss_value;
+        value = static_cast<std::remove_reference_t<decltype(value)>>(
+            total_probability * win_value + (1.0 - total_probability) * miss_value);
     };
 
     assert(root_vertices.size() == stats.size());
@@ -1629,7 +1630,8 @@ void ExpectedScoreCalculator::calc_stats(
                 if (s2.tenpai_prob > best_tenpai_prob) {
                     best_tenpai_prob = s2.tenpai_prob;
                 }
-                best_win_prob = std::max(best_win_prob, s2.win_prob);
+                best_win_prob = std::max(best_win_prob,
+                                         static_cast<double>(s2.win_prob));
                 if (s2.exp_score > best_exp_score) {
                     best_exp_score = s2.exp_score;
                     best_call_prob = s2.call_prob;

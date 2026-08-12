@@ -162,11 +162,11 @@ class ExpectedScoreCalculator
         {
         }
 
-        double tenpai_prob = 0.0;
-        double win_prob = 0.0;
-        double exp_score = 0.0;
-        double call_prob = 0.0;
-        double call_win_prob = 0.0;
+        float tenpai_prob = 0.0F;
+        float win_prob = 0.0F;
+        float exp_score = 0.0F;
+        float call_prob = 0.0F;
+        float call_win_prob = 0.0F;
         bool is_tenpai = false;
         bool has_open_meld = false;
         bool dynamic_called = false;
@@ -198,10 +198,10 @@ class ExpectedScoreCalculator
         std::uint32_t next_out;
         std::uint32_t next_in;
         int weight;
-        double score;
+        float score;
         std::uint32_t contribution_offset;
         std::uint16_t contribution_count;
-        double last_score;
+        float last_score;
         std::uint32_t last_contribution_offset;
         std::uint16_t last_contribution_count;
     };
@@ -241,9 +241,11 @@ class ExpectedScoreCalculator
             const auto [last_contribution_offset, last_contribution_count] =
                 append_contributions(last_score_data);
             edges.push_back(EdgeData{source, target, first_out_edges[source],
-                                     first_in_edges[target], weight, score_data.score,
+                                     first_in_edges[target], weight,
+                                     static_cast<float>(score_data.score),
                                      contribution_offset, contribution_count,
-                                     last_score_data.score, last_contribution_offset,
+                                     static_cast<float>(last_score_data.score),
+                                     last_contribution_offset,
                                      last_contribution_count});
             first_out_edges[source] = edge;
             first_in_edges[target] = edge;
@@ -300,10 +302,10 @@ class ExpectedScoreCalculator
     {
         std::uint32_t target;
         int weight;
-        double score;
+        float score;
         std::uint32_t contribution_offset;
         std::uint16_t contribution_count;
-        double last_score;
+        float last_score;
         std::uint32_t last_contribution_offset;
         std::uint16_t last_contribution_count;
     };
