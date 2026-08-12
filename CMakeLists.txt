@@ -92,9 +92,7 @@ endif()
 # Build mahjong-cpp
 
 # Deep-shanten state enumeration is recursive. Reserve enough virtual stack for it.
-if(EMSCRIPTEN)
-  target_link_libraries(${LIB_NAME} spdlog::spdlog)
-elseif (MSVC)
+if (MSVC)
   set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /STACK:268435456")
 elseif(WIN32)
   set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--stack,268435456")
@@ -107,7 +105,9 @@ set(LIB_NAME mahjong-cpp)
 
 file(GLOB_RECURSE SRC_FILES src/mahjong/*.cpp)
 add_library(${LIB_NAME} ${SRC_FILES})
-if (MSVC)
+if(EMSCRIPTEN)
+  target_link_libraries(${LIB_NAME} spdlog::spdlog)
+elseif (MSVC)
   target_link_libraries(${LIB_NAME} ${CMAKE_DL_LIBS} Boost::filesystem Boost::system
                         spdlog)
 else()
