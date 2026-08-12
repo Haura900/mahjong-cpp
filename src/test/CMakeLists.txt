@@ -42,10 +42,10 @@ foreach(ENTRY_FILE ${ENTRY_FILES})
   target_compile_definitions(${EXE_NAME} PRIVATE MAHJONG_CPP_DISABLE_SERVER_MAIN)
   if (MSVC)
     target_link_libraries(${EXE_NAME} ${LIB_NAME} ${CMAKE_DL_LIBS}
-                          Boost::filesystem Boost::system spdlog Catch2)
+                          Boost::filesystem Boost::system spdlog::spdlog_header_only Catch2)
   else()
     target_link_libraries(${EXE_NAME} ${LIB_NAME} ${CMAKE_DL_LIBS}
-                          Boost::filesystem Boost::system spdlog::spdlog
+                          Boost::filesystem Boost::system spdlog::spdlog_header_only
                           Catch2::Catch2 -static-libgcc -static-libstdc++ -static)
   endif()
 endforeach(ENTRY_FILE ${ENTRY_FILES})
