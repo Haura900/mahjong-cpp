@@ -255,6 +255,12 @@
             "maximum": 1
           }
         },
+        "enable_situational_hazard": { "type": "boolean" },
+        "opponent_riichi_count": { "type": "integer", "minimum": 0, "maximum": 3 },
+        "opponent_two_meld_count": { "type": "integer", "minimum": 0, "maximum": 3 },
+        "self_riichi": { "type": "boolean" },
+        "enable_ev_breakdown": { "type": "boolean" },
+        "tenpai_payment": { "type": "number" },
         "calc_yaku_stats": {
           "type": "boolean"
         },
@@ -331,6 +337,22 @@
           "items": {
             "type": "number"
           }
+        },
+        "win_ev": {
+          "type": "array",
+          "items": { "type": "number" }
+        },
+        "deal_in_ev": {
+          "type": "array",
+          "items": { "type": "number" }
+        },
+        "tenpai_ev": {
+          "type": "array",
+          "items": { "type": "number" }
+        },
+        "total_ev": {
+          "type": "array",
+          "items": { "type": "number" }
         },
         "necessary_tiles": {
           "type": "array",

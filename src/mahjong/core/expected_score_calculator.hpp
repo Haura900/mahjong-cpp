@@ -64,6 +64,20 @@ class ExpectedScoreCalculator
             0.0,    0.0002, 0.0008, 0.0029, 0.0078, 0.0170, 0.0305,
             0.0467, 0.0644, 0.0823, 0.0975, 0.1108, 0.1212, 0.1276,
             0.1312, 0.1323, 0.1309, 0.1170, 0.1170};
+        /* Multiply the base other-win hazard using the visible table state. */
+        bool enable_situational_hazard = false;
+        int opponent_riichi_count = 0;
+        int opponent_two_meld_count = 0;
+        bool self_riichi = false;
+        double opponent_riichi_multiplier = 1.65;
+        double opponent_double_riichi_multiplier = 2.10;
+        double opponent_two_meld_multiplier = 1.35;
+        double self_riichi_multiplier = 1.18;
+        /* Additive EV output. Empty unless explicitly enabled. */
+        bool enable_ev_breakdown = false;
+        std::array<double, 37> deal_in_probability{};
+        std::array<double, 37> deal_in_value{};
+        double tenpai_payment = 1500.0;
         /* Calculate per-yaku expected-score contributions. */
         bool calc_yaku_stats = false;
         /* Calculate exact Shapley allocation among scoring yaku and bonuses. */
@@ -116,6 +130,11 @@ class ExpectedScoreCalculator
         std::vector<double> call_win_prob;
         /* distribution of the single dynamic call by called tile */
         std::vector<CallTileStat> call_tile_stats;
+        /* additive EV components; populated only when enable_ev_breakdown is true */
+        std::vector<double> win_ev;
+        std::vector<double> deal_in_ev;
+        std::vector<double> tenpai_ev;
+        std::vector<double> total_ev;
     };
 
   private:
