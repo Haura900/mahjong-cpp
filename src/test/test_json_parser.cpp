@@ -420,6 +420,29 @@ TEST_CASE("deserialize_request maps validated JSON to Request")
                            hazards.PushBack(turn / 100.0, allocator);
                        }
                        request.AddMember("other_win_hazard", hazards, allocator);
+                       request.AddMember("enable_situational_hazard", true, allocator);
+                       request.AddMember("opponent_riichi_count", 2, allocator);
+                       request.AddMember("opponent_two_meld_count", 1, allocator);
+                       request.AddMember("self_riichi", true, allocator);
+                       rapidjson::Value multipliers(rapidjson::kObjectType);
+                       multipliers.AddMember("opponent_riichi", 1.65, allocator);
+                       multipliers.AddMember("opponent_double_riichi", 2.10, allocator);
+                       multipliers.AddMember("opponent_two_meld", 1.35, allocator);
+                       multipliers.AddMember("self_riichi", 1.18, allocator);
+                       request.AddMember("hazard_multipliers", multipliers, allocator);
+                       request.AddMember("enable_ev_breakdown", true, allocator);
+                       rapidjson::Value deal_in_probability(rapidjson::kArrayType);
+                       rapidjson::Value deal_in_value(rapidjson::kArrayType);
+                       for (int tile = 0; tile < 37; ++tile) {
+                           deal_in_probability.PushBack(tile == 0 ? 0.08 : 0.0,
+                                                        allocator);
+                           deal_in_value.PushBack(tile == 0 ? 8700.0 : 0.0,
+                                                  allocator);
+                       }
+                       request.AddMember("deal_in_probability", deal_in_probability,
+                                         allocator);
+                       request.AddMember("deal_in_value", deal_in_value, allocator);
+                       request.AddMember("tenpai_payment", 1500.0, allocator);
                        request.AddMember("calc_yaku_stats", true, allocator);
                        request.AddMember("calc_shapley_stats", true, allocator);
                        request.AddMember(
@@ -446,6 +469,15 @@ TEST_CASE("deserialize_request maps validated JSON to Request")
         CHECK(req.config.other_win_hazard[1] == Approx(0.01));
         CHECK(req.config.other_win_hazard[17] == Approx(0.17));
         CHECK(req.config.other_win_hazard[18] == Approx(0.17));
+        CHECK(req.config.enable_situational_hazard);
+        CHECK(req.config.opponent_riichi_count == 2);
+        CHECK(req.config.opponent_two_meld_count == 1);
+        CHECK(req.config.self_riichi);
+        CHECK(req.config.opponent_double_riichi_multiplier == Approx(2.10));
+        CHECK(req.config.enable_ev_breakdown);
+        CHECK(req.config.deal_in_probability[0] == Approx(0.08));
+        CHECK(req.config.deal_in_value[0] == Approx(8700.0));
+        CHECK(req.config.tenpai_payment == Approx(1500.0));
         CHECK(req.config.calc_yaku_stats);
         CHECK(req.config.calc_shapley_stats);
         CHECK(req.config.yaku_filter == (Yaku::Pinfu | Yaku::Tanyao));
@@ -677,6 +709,32 @@ TEST_CASE("four shanten and deeper disable search expansion options")
     REQUIRE(opted_out.config.enable_tegawari);
 }
 
+TEST_CASE("situational hazard is opt-in and multiplies the base curve")
+{
+    Request req = make_sample_request();
+    req.config.calc_stats = false;
+    req.calc_stats_explicit = true;
+    const auto base = req.config.other_win_hazard;
+
+    const CalculationResult legacy = calculate_result(req);
+    REQUIRE_FALSE(legacy.config.enable_situational_hazard);
+    REQUIRE(legacy.config.other_win_hazard == base);
+
+    req.config.enable_situational_hazard = true;
+    req.config.opponent_riichi_count = 1;
+    req.config.opponent_two_meld_count = 1;
+    req.config.self_riichi = true;
+    req.config.opponent_riichi_multiplier = 1.5;
+    req.config.opponent_two_meld_multiplier = 1.2;
+    req.config.self_riichi_multiplier = 1.1;
+    const CalculationResult adjusted = calculate_result(req);
+    const double multiplier = 1.5 * 1.2 * 1.1;
+    REQUIRE(adjusted.config.other_win_hazard[8] ==
+            Approx(base[8] * multiplier));
+    REQUIRE(adjusted.config.other_win_hazard[18] ==
+            adjusted.config.other_win_hazard[17]);
+}
+
 TEST_CASE("build_success_response serializes red fives without duplicate normal fives")
 {
     Request req = make_sample_request();
@@ -710,6 +768,12 @@ TEST_CASE("build_success_response serializes optional yaku contributions")
     result.config.calc_shapley_stats = true;
     result.config.enable_turn_yaku = true;
     result.config.enable_calls = true;
+    result.config.enable_situational_hazard = true;
+    result.config.opponent_riichi_count = 1;
+    result.config.opponent_two_meld_count = 1;
+    result.config.self_riichi = true;
+    result.config.enable_ev_breakdown = true;
+    result.config.tenpai_payment = 1500.0;
     result.config.yaku_filter = Yaku::Pinfu | Yaku::Tanyao;
     result.stats[0].call_win_prob = {0.0, 0.03};
     result.stats[0].call_tile_stats = {{Tile::WhiteDragon, {0.0, 0.05}}};
@@ -718,6 +782,10 @@ TEST_CASE("build_success_response serializes optional yaku contributions")
                                    {0.0, 800.0},
                                    {0.0, 0.025},
                                    {0.0, 150.0}}};
+    result.stats[0].win_ev = {0.0, 2000.0};
+    result.stats[0].deal_in_ev = {0.0, -696.0};
+    result.stats[0].tenpai_ev = {0.0, 187.5};
+    result.stats[0].total_ev = {0.0, 1491.5};
 
     rapidjson::Document doc;
     build_success_response(req, result, doc);
@@ -732,6 +800,20 @@ TEST_CASE("build_success_response serializes optional yaku contributions")
     REQUIRE(doc["config"]["calc_shapley_stats"].GetBool());
     REQUIRE(doc["config"]["enable_turn_yaku"].GetBool());
     REQUIRE(doc["config"]["enable_calls"].GetBool());
+    REQUIRE(doc["config"]["enable_situational_hazard"].GetBool());
+    REQUIRE(doc["config"]["opponent_riichi_count"].GetInt() == 1);
+    REQUIRE(doc["config"]["opponent_two_meld_count"].GetInt() == 1);
+    REQUIRE(doc["config"]["self_riichi"].GetBool());
+    REQUIRE(doc["config"]["enable_ev_breakdown"].GetBool());
+    REQUIRE(doc["config"]["tenpai_payment"].GetDouble() == Approx(1500.0));
+    REQUIRE(to_double_vector(doc["stats"][0]["win_ev"]) ==
+            std::vector<double>({0.0, 2000.0}));
+    REQUIRE(to_double_vector(doc["stats"][0]["deal_in_ev"]) ==
+            std::vector<double>({0.0, -696.0}));
+    REQUIRE(to_double_vector(doc["stats"][0]["tenpai_ev"]) ==
+            std::vector<double>({0.0, 187.5}));
+    REQUIRE(to_double_vector(doc["stats"][0]["total_ev"]) ==
+            std::vector<double>({0.0, 1491.5}));
     REQUIRE(doc["stats"][0]["yaku_stats"].Size() == 1);
     REQUIRE(doc["stats"][0]["yaku_stats"][0]["yaku"].GetUint64() == Yaku::Pinfu);
     REQUIRE(to_double_vector(doc["stats"][0]["call_win_prob"]) ==

@@ -107,6 +107,31 @@
         "maximum": 1
       }
     },
+    "enable_situational_hazard": { "type": "boolean" },
+    "opponent_riichi_count": { "type": "integer", "minimum": 0, "maximum": 3 },
+    "opponent_two_meld_count": { "type": "integer", "minimum": 0, "maximum": 3 },
+    "self_riichi": { "type": "boolean" },
+    "hazard_multipliers": {
+      "type": "object",
+      "required": ["opponent_riichi", "opponent_double_riichi", "opponent_two_meld", "self_riichi"],
+      "additionalProperties": false,
+      "properties": {
+        "opponent_riichi": { "type": "number", "minimum": 0, "maximum": 10 },
+        "opponent_double_riichi": { "type": "number", "minimum": 0, "maximum": 10 },
+        "opponent_two_meld": { "type": "number", "minimum": 0, "maximum": 10 },
+        "self_riichi": { "type": "number", "minimum": 0, "maximum": 10 }
+      }
+    },
+    "enable_ev_breakdown": { "type": "boolean" },
+    "deal_in_probability": {
+      "type": "array", "minItems": 37, "maxItems": 37,
+      "items": { "type": "number", "minimum": 0, "maximum": 1 }
+    },
+    "deal_in_value": {
+      "type": "array", "minItems": 37, "maxItems": 37,
+      "items": { "type": "number", "minimum": 0, "maximum": 100000 }
+    },
+    "tenpai_payment": { "type": "number", "minimum": -10000, "maximum": 10000 },
     "calc_yaku_stats": {
       "type": "boolean"
     },

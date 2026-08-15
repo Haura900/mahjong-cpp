@@ -130,6 +130,48 @@ Request make_request(const rapidjson::Value &doc)
         }
         req.config.other_win_hazard[18] = req.config.other_win_hazard[17];
     }
+    if (doc.HasMember("enable_situational_hazard")) {
+        req.config.enable_situational_hazard =
+            doc["enable_situational_hazard"].GetBool();
+    }
+    if (doc.HasMember("opponent_riichi_count")) {
+        req.config.opponent_riichi_count = doc["opponent_riichi_count"].GetInt();
+    }
+    if (doc.HasMember("opponent_two_meld_count")) {
+        req.config.opponent_two_meld_count =
+            doc["opponent_two_meld_count"].GetInt();
+    }
+    if (doc.HasMember("self_riichi")) {
+        req.config.self_riichi = doc["self_riichi"].GetBool();
+    }
+    if (doc.HasMember("hazard_multipliers")) {
+        const auto &multipliers = doc["hazard_multipliers"];
+        req.config.opponent_riichi_multiplier =
+            multipliers["opponent_riichi"].GetDouble();
+        req.config.opponent_double_riichi_multiplier =
+            multipliers["opponent_double_riichi"].GetDouble();
+        req.config.opponent_two_meld_multiplier =
+            multipliers["opponent_two_meld"].GetDouble();
+        req.config.self_riichi_multiplier =
+            multipliers["self_riichi"].GetDouble();
+    }
+    if (doc.HasMember("enable_ev_breakdown")) {
+        req.config.enable_ev_breakdown = doc["enable_ev_breakdown"].GetBool();
+    }
+    if (doc.HasMember("deal_in_probability")) {
+        for (rapidjson::SizeType i = 0; i < doc["deal_in_probability"].Size(); ++i) {
+            req.config.deal_in_probability[i] =
+                doc["deal_in_probability"][i].GetDouble();
+        }
+    }
+    if (doc.HasMember("deal_in_value")) {
+        for (rapidjson::SizeType i = 0; i < doc["deal_in_value"].Size(); ++i) {
+            req.config.deal_in_value[i] = doc["deal_in_value"][i].GetDouble();
+        }
+    }
+    if (doc.HasMember("tenpai_payment")) {
+        req.config.tenpai_payment = doc["tenpai_payment"].GetDouble();
+    }
     if (doc.HasMember("calc_yaku_stats")) {
         req.config.calc_yaku_stats = doc["calc_yaku_stats"].GetBool();
     }
@@ -342,6 +384,24 @@ serialize_expected_score(const std::vector<ExpectedScoreCalculator::Stat> &stats
             exp_score.PushBack(value, allocator);
         }
         x.AddMember("exp_score", exp_score, allocator);
+
+        const auto add_score_series = [&x, &allocator](const char *name,
+                                                       const auto &series) {
+            if (series.empty()) {
+                return;
+            }
+            rapidjson::Value values(rapidjson::kArrayType);
+            for (const double score : series) {
+                values.PushBack(score, allocator);
+            }
+            rapidjson::Value key;
+            key.SetString(name, allocator);
+            x.AddMember(key, values, allocator);
+        };
+        add_score_series("win_ev", stat.win_ev);
+        add_score_series("deal_in_ev", stat.deal_in_ev);
+        add_score_series("tenpai_ev", stat.tenpai_ev);
+        add_score_series("total_ev", stat.total_ev);
 
         rapidjson::Value call_prob(rapidjson::kArrayType);
         for (const auto prob : stat.call_prob) {
@@ -617,6 +677,19 @@ void build_success_response(const Request &req, const CalculationResult &result,
             other_win_hazard.PushBack(result.config.other_win_hazard[turn], allocator);
         }
         config_val.AddMember("other_win_hazard", other_win_hazard, allocator);
+    }
+    if (result.config.enable_situational_hazard) {
+        config_val.AddMember("enable_situational_hazard", true, allocator);
+        config_val.AddMember("opponent_riichi_count",
+                             result.config.opponent_riichi_count, allocator);
+        config_val.AddMember("opponent_two_meld_count",
+                             result.config.opponent_two_meld_count, allocator);
+        config_val.AddMember("self_riichi", result.config.self_riichi, allocator);
+    }
+    if (result.config.enable_ev_breakdown) {
+        config_val.AddMember("enable_ev_breakdown", true, allocator);
+        config_val.AddMember("tenpai_payment", result.config.tenpai_payment,
+                             allocator);
     }
     if (result.config.calc_yaku_stats) {
         config_val.AddMember("calc_yaku_stats", true, allocator);

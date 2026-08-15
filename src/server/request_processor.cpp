@@ -1,6 +1,7 @@
 #include "request_processor.hpp"
 
 #include <chrono>
+#include <algorithm>
 #include <numeric>
 #include <stdexcept>
 
@@ -11,6 +12,27 @@ CalculationResult calculate_result(const Request &req)
     CalculationResult result;
 
     result.config = req.config;
+    if (result.config.enable_situational_hazard) {
+        double multiplier = 1.0;
+        if (result.config.opponent_riichi_count >= 2) {
+            multiplier *= result.config.opponent_double_riichi_multiplier;
+        }
+        else if (result.config.opponent_riichi_count == 1) {
+            multiplier *= result.config.opponent_riichi_multiplier;
+        }
+        for (int i = 0; i < result.config.opponent_two_meld_count; ++i) {
+            multiplier *= result.config.opponent_two_meld_multiplier;
+        }
+        if (result.config.self_riichi) {
+            multiplier *= result.config.self_riichi_multiplier;
+        }
+        for (int turn = 1; turn <= 18; ++turn) {
+            result.config.other_win_hazard[turn] = std::clamp(
+                result.config.other_win_hazard[turn] * multiplier, 0.0, 1.0);
+        }
+        result.config.other_win_hazard[18] =
+            result.config.other_win_hazard[17];
+    }
     result.config.sum = std::accumulate(req.wall.begin(), req.wall.begin() + 34, 0);
     result.config.shanten_type = ShantenFlag::All;
     result.shanten = std::get<1>(
@@ -40,6 +62,29 @@ CalculationResult calculate_result(const Request &req)
     std::tie(result.stats, result.searched) =
         ExpectedScoreCalculator::calc(result.config, req.table_config, req.round_state,
                                       req.table_state, req.player, req.wall);
+    if (result.config.enable_ev_breakdown) {
+        for (auto &stat : result.stats) {
+            const std::size_t size = stat.exp_score.size();
+            stat.win_ev = stat.exp_score;
+            stat.deal_in_ev.assign(size, 0.0);
+            stat.tenpai_ev.assign(size, 0.0);
+            stat.total_ev.assign(size, 0.0);
+            const bool discard = stat.tile >= 0 && stat.tile < 37;
+            const double deal_in = discard
+                ? -result.config.deal_in_probability[stat.tile] *
+                      result.config.deal_in_value[stat.tile]
+                : 0.0;
+            for (std::size_t turn = 0; turn < size; ++turn) {
+                stat.deal_in_ev[turn] = deal_in;
+                const double exhaustive_tenpai_probability = std::clamp(
+                    stat.tenpai_prob[turn] - stat.win_prob[turn], 0.0, 1.0);
+                stat.tenpai_ev[turn] = exhaustive_tenpai_probability *
+                                       result.config.tenpai_payment;
+                stat.total_ev[turn] = stat.win_ev[turn] + stat.deal_in_ev[turn] +
+                                      stat.tenpai_ev[turn];
+            }
+        }
+    }
     const auto end = std::chrono::steady_clock::now();
     result.time_us =
         std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
