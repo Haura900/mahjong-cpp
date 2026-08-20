@@ -2,6 +2,7 @@
 
 #include <algorithm> // max, fill
 #include <cassert>
+#include <chrono>
 #include <cmath>
 #include <stdexcept>
 
@@ -17,6 +18,25 @@
 
 namespace mahjong
 {
+
+ExpectedScoreCalculator::Profile &
+ExpectedScoreCalculator::Profile::operator+=(const Profile &other)
+{
+    graph_build_us += other.graph_build_us;
+    csr_build_us += other.csr_build_us;
+    dp_us += other.dp_us;
+    draw_vertices += other.draw_vertices;
+    discard_vertices += other.discard_vertices;
+    edges += other.edges;
+    necessary_tile_calculator_calls += other.necessary_tile_calculator_calls;
+    unnecessary_tile_calculator_calls += other.unnecessary_tile_calculator_calls;
+    prune_high_shanten_tegawari += other.prune_high_shanten_tegawari;
+    prune_high_shanten_shanten_down += other.prune_high_shanten_shanten_down;
+    prune_shanten_down_multiple_discards +=
+        other.prune_shanten_down_multiple_discards;
+    prune_noop_tegawari += other.prune_noop_tegawari;
+    return *this;
+}
 
 namespace
 {
@@ -772,7 +792,7 @@ class ExpectedScoreCalculator::GraphBuilder
                  const RoundState &round_state, const TableState &table_state,
                  PlayerState &player, SeparatedCount &hand_counts,
                  SeparatedCount &wall_counts, const SeparatedCount &hand_org,
-                 const int shanten_org)
+                 const int shanten_org, Profile &profile)
         : config_(config)
         , table_config_(table_config)
         , round_state_(round_state)
@@ -787,6 +807,7 @@ class ExpectedScoreCalculator::GraphBuilder
         , hand_key_(hand_counts, NoRiichi, config.state_tag)
         , hand_mask_(nonzero_mask(hand_counts))
         , wall_mask_(nonzero_mask(wall_counts))
+        , profile_(profile)
     {
         hand_key_.melds = meld_signature(player_.melds);
     }
@@ -874,6 +895,7 @@ class ExpectedScoreCalculator::GraphBuilder
     CacheKey hand_key_;
     std::uint64_t hand_mask_;
     std::uint64_t wall_mask_;
+    Profile &profile_;
     int exchange_distance_ = 0;
     Graph graph_;
     Cache cache1_;
@@ -1094,6 +1116,7 @@ ExpectedScoreCalculator::GraphBuilder::build_node(const bool draw,
             }
 
             if (frame.draw) {
+                ++profile_.necessary_tile_calculator_calls;
                 auto [type, shanten, wait] = NecessaryTileCalculator::calc(
                     player_.hand, player_.num_melds(), config_.shanten_type,
                     table_config_.game_mode);
@@ -1109,6 +1132,11 @@ ExpectedScoreCalculator::GraphBuilder::build_node(const bool draw,
                     config_.enable_tegawari && !after_dynamic_call &&
                     frame.riichi_state == NoRiichi && can_extend_search &&
                     !(config_.prune_high_shanten_deep_search && shanten >= 4);
+                if (config_.enable_tegawari && !after_dynamic_call &&
+                    frame.riichi_state == NoRiichi && can_extend_search &&
+                    config_.prune_high_shanten_deep_search && shanten >= 4) {
+                    ++profile_.prune_high_shanten_tegawari;
+                }
                 frame.candidates =
                     allow_tegawari ? wall_mask_ : wall_mask_ & frame.flags;
 
@@ -1130,6 +1158,7 @@ ExpectedScoreCalculator::GraphBuilder::build_node(const bool draw,
                 }
             }
             else {
+                ++profile_.unnecessary_tile_calculator_calls;
                 auto [type, shanten, disc] = UnnecessaryTileCalculator::calc(
                     player_.hand, player_.num_melds(), config_.shanten_type,
                     table_config_.game_mode);
@@ -1147,6 +1176,17 @@ ExpectedScoreCalculator::GraphBuilder::build_node(const bool draw,
                     !(config_.prune_high_shanten_deep_search && shanten >= 4) &&
                     !(config_.prune_shanten_down_with_multiple_discards &&
                       shanten >= 2 && normal_tile_type_count(frame.flags) >= 2);
+                if (config_.enable_shanten_down && !after_dynamic_call &&
+                    frame.riichi_state == NoRiichi && can_extend_search) {
+                    if (config_.prune_high_shanten_deep_search && shanten >= 4) {
+                        ++profile_.prune_high_shanten_shanten_down;
+                    }
+                    else if (config_.prune_shanten_down_with_multiple_discards &&
+                             shanten >= 2 &&
+                             normal_tile_type_count(frame.flags) >= 2) {
+                        ++profile_.prune_shanten_down_multiple_discards;
+                    }
+                }
                 frame.candidates =
                     allow_shanten_down ? hand_mask_ : hand_mask_ & frame.flags;
 
@@ -1188,6 +1228,7 @@ ExpectedScoreCalculator::GraphBuilder::build_node(const bool draw,
             }
 
             apply_call(spec);
+            ++profile_.unnecessary_tile_calculator_calls;
             const int post_call_shanten = std::get<1>(UnnecessaryTileCalculator::calc(
                 player_.hand, player_.num_melds(), config_.shanten_type,
                 table_config_.game_mode));
@@ -1247,6 +1288,7 @@ ExpectedScoreCalculator::GraphBuilder::build_node(const bool draw,
 
             if (config_.prune_noop_tegawari && frame.shanten >= 2 &&
                 !frame.selected) {
+                ++profile_.unnecessary_tile_calculator_calls;
                 const auto [discard_type, discard_shanten, discard_mask] =
                     UnnecessaryTileCalculator::calc(
                         player_.hand, player_.num_melds(), config_.shanten_type,
@@ -1257,6 +1299,7 @@ ExpectedScoreCalculator::GraphBuilder::build_node(const bool draw,
                         add_red5_flags(discard_mask) & nonzero_mask(hand_counts_);
                     if (concrete_discards ==
                         (std::uint64_t{1} << frame.tile)) {
+                        ++profile_.prune_noop_tegawari;
                         discard_tile(frame.tile);
                         frame.stage = Stage::DrawNext;
                         continue;
@@ -2234,31 +2277,51 @@ void ExpectedScoreCalculator::calc_stats(
 std::tuple<std::vector<ExpectedScoreCalculator::Stat>, int>
 ExpectedScoreCalculator::calc(const Config &config, const TableConfig &table_config,
                               const RoundState &round_state,
-                              const TableState &table_state, const PlayerState &player)
+                              const TableState &table_state, const PlayerState &player,
+                              Profile *profile)
 {
     const MergedCount wall =
         create_wall(table_config, table_state, player, config.enable_reddora);
 
-    return calc(config, table_config, round_state, table_state, player, wall);
+    return calc(config, table_config, round_state, table_state, player, wall, profile);
 }
 
 void ExpectedScoreCalculator::calc_draw_hand(
     const Config &config, const PlayerState &player, const TableConfig &table_config,
     const RoundState &round_state, const TableState &table_state,
     const MergedCount &wall, const SeparatedCount &hand_counts,
-    GraphBuilder &graph_builder, std::vector<Stat> &stats)
+    GraphBuilder &graph_builder, std::vector<Stat> &stats, Profile *profile)
 {
     // 13枚の場合は自摸を起点に手牌遷移のグラフを作成する。
+    const auto graph_start = std::chrono::steady_clock::now();
     const Vertex vertex = graph_builder.draw_node(NoRiichi);
+    const auto graph_end = std::chrono::steady_clock::now();
     stats.emplace_back(Stat{Tile::Null, {}, {}, {}, {}, {}, 0, {}});
 
     // 確率、期待値を計算する。
     graph_builder.release_caches();
+    if (profile) {
+        profile->graph_build_us += std::chrono::duration_cast<std::chrono::microseconds>(
+                                       graph_end - graph_start).count();
+        profile->draw_vertices += graph_builder.draw_vertices().size();
+        profile->discard_vertices += graph_builder.discard_vertices().size();
+        profile->edges += graph_builder.graph().edges.size();
+    }
+    const auto csr_start = std::chrono::steady_clock::now();
     const EdgeCsr edge_csr = build_edge_csr(graph_builder.graph());
+    const auto csr_end = std::chrono::steady_clock::now();
     graph_builder.graph().release_adjacency();
+    const auto dp_start = std::chrono::steady_clock::now();
     calc_stats(config, graph_builder.graph(), graph_builder.draw_vertices(),
                graph_builder.discard_vertices(), graph_builder.ippatsu_expiries(),
                graph_builder.call_options(), edge_csr, {vertex}, stats);
+    const auto dp_end = std::chrono::steady_clock::now();
+    if (profile) {
+        profile->csr_build_us += std::chrono::duration_cast<std::chrono::microseconds>(
+                                     csr_end - csr_start).count();
+        profile->dp_us += std::chrono::duration_cast<std::chrono::microseconds>(
+                              dp_end - dp_start).count();
+    }
 
     // 結果を取得する。
     const VertexData &state = graph_builder.graph()[vertex];
@@ -2275,13 +2338,18 @@ void ExpectedScoreCalculator::calc_discard_hand(
     const Config &config, PlayerState &player, const TableConfig &table_config,
     const RoundState &round_state, const TableState &table_state,
     const MergedCount &wall, SeparatedCount &hand_counts, SeparatedCount &wall_counts,
-    GraphBuilder &graph_builder, std::vector<Stat> &stats)
+    GraphBuilder &graph_builder, std::vector<Stat> &stats, Profile *profile)
 {
     // 14枚の場合は打牌を起点に手牌遷移のグラフを作成する。
+    const auto graph_start = std::chrono::steady_clock::now();
     graph_builder.discard_node(NoRiichi);
+    const auto graph_end = std::chrono::steady_clock::now();
 
     // 確率、期待値を計算する。
     // 結果を取得する。
+    if (profile) {
+        ++profile->unnecessary_tile_calculator_calls;
+    }
     auto [discard_type, discard_shanten, discard_tiles] =
         UnnecessaryTileCalculator::calc(player.hand, player.num_melds(),
                                         config.shanten_type, table_config.game_mode);
@@ -2318,11 +2386,28 @@ void ExpectedScoreCalculator::calc_discard_hand(
     }
 
     graph_builder.release_caches();
+    if (profile) {
+        profile->graph_build_us += std::chrono::duration_cast<std::chrono::microseconds>(
+                                       graph_end - graph_start).count();
+        profile->draw_vertices += graph_builder.draw_vertices().size();
+        profile->discard_vertices += graph_builder.discard_vertices().size();
+        profile->edges += graph_builder.graph().edges.size();
+    }
+    const auto csr_start = std::chrono::steady_clock::now();
     const EdgeCsr edge_csr = build_edge_csr(graph_builder.graph());
+    const auto csr_end = std::chrono::steady_clock::now();
     graph_builder.graph().release_adjacency();
+    const auto dp_start = std::chrono::steady_clock::now();
     calc_stats(config, graph_builder.graph(), graph_builder.draw_vertices(),
                graph_builder.discard_vertices(), graph_builder.ippatsu_expiries(),
                graph_builder.call_options(), edge_csr, root_vertices, stats);
+    const auto dp_end = std::chrono::steady_clock::now();
+    if (profile) {
+        profile->csr_build_us += std::chrono::duration_cast<std::chrono::microseconds>(
+                                     csr_end - csr_start).count();
+        profile->dp_us += std::chrono::duration_cast<std::chrono::microseconds>(
+                              dp_end - dp_start).count();
+    }
 }
 
 namespace
@@ -2444,28 +2529,40 @@ std::tuple<std::vector<ExpectedScoreCalculator::Stat>, int>
 ExpectedScoreCalculator::calc(const Config &config, const TableConfig &table_config,
                               const RoundState &round_state,
                               const TableState &table_state, const PlayerState &player,
-                              const MergedCount &wall)
+                              const MergedCount &wall, Profile *profile)
 {
+    if (profile) {
+        *profile = Profile{};
+    }
     if (!config.enable_turn_yaku || !config.enable_tegawari || !config.calc_stats) {
-        return calc_core(config, table_config, round_state, table_state, player, wall);
+        return calc_core(config, table_config, round_state, table_state, player, wall,
+                         profile);
     }
 
     Config base_config = config;
     base_config.enable_turn_yaku = false;
-    auto [base, base_searched] =
-        calc_core(base_config, table_config, round_state, table_state, player, wall);
+    Profile base_profile;
+    auto [base, base_searched] = calc_core(base_config, table_config, round_state,
+                                           table_state, player, wall, &base_profile);
 
     Config overlay_on = config;
     overlay_on.enable_tegawari = false;
-    auto [turn_on, on_searched] =
-        calc_core(overlay_on, table_config, round_state, table_state, player, wall);
+    Profile on_profile;
+    auto [turn_on, on_searched] = calc_core(overlay_on, table_config, round_state,
+                                            table_state, player, wall, &on_profile);
 
     Config overlay_off = overlay_on;
     overlay_off.enable_turn_yaku = false;
-    auto [turn_off, off_searched] =
-        calc_core(overlay_off, table_config, round_state, table_state, player, wall);
+    Profile off_profile;
+    auto [turn_off, off_searched] = calc_core(overlay_off, table_config, round_state,
+                                              table_state, player, wall, &off_profile);
 
     merge_turn_yaku_overlay(base, turn_on, turn_off);
+    if (profile) {
+        *profile += base_profile;
+        *profile += on_profile;
+        *profile += off_profile;
+    }
     return {std::move(base), base_searched + on_searched + off_searched};
 }
 
@@ -2474,7 +2571,8 @@ ExpectedScoreCalculator::calc_core(const Config &_config,
                                    const TableConfig &_table_config,
                                    const RoundState &_round_state,
                                    const TableState &_table_state,
-                                   const PlayerState &_player, const MergedCount &_wall)
+                                   const PlayerState &_player, const MergedCount &_wall,
+                                   Profile *profile)
 {
     Config config = _config;
     TableConfig table_config = _table_config;
@@ -2541,16 +2639,19 @@ ExpectedScoreCalculator::calc_core(const Config &_config,
     const SeparatedCount hand_org = hand_counts;
     const int shanten_org = std::get<1>(ShantenCalculator::calc(
         player.hand, player.num_melds(), config.shanten_type, table_config.game_mode));
+    Profile local_profile;
+    Profile &active_profile = profile ? *profile : local_profile;
     GraphBuilder graph_builder(config, table_config, round_state, table_state, player,
-                               hand_counts, wall_counts, hand_org, shanten_org);
+                               hand_counts, wall_counts, hand_org, shanten_org,
+                               active_profile);
 
     if (num_tiles == 13) {
         calc_draw_hand(config, player, table_config, round_state, table_state, wall,
-                       hand_counts, graph_builder, stats);
+                       hand_counts, graph_builder, stats, profile);
     }
     else {
         calc_discard_hand(config, player, table_config, round_state, table_state, wall,
-                          hand_counts, wall_counts, graph_builder, stats);
+                          hand_counts, wall_counts, graph_builder, stats, profile);
     }
 
     const int searched = static_cast<int>(graph_builder.graph().num_vertices());

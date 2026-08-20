@@ -124,6 +124,24 @@ class ExpectedScoreCalculator
         std::vector<CallTileStat> call_tile_stats;
     };
 
+    struct Profile
+    {
+        long long graph_build_us = 0;
+        long long csr_build_us = 0;
+        long long dp_us = 0;
+        std::uint64_t draw_vertices = 0;
+        std::uint64_t discard_vertices = 0;
+        std::uint64_t edges = 0;
+        std::uint64_t necessary_tile_calculator_calls = 0;
+        std::uint64_t unnecessary_tile_calculator_calls = 0;
+        std::uint64_t prune_high_shanten_tegawari = 0;
+        std::uint64_t prune_high_shanten_shanten_down = 0;
+        std::uint64_t prune_shanten_down_multiple_discards = 0;
+        std::uint64_t prune_noop_tegawari = 0;
+
+        Profile &operator+=(const Profile &other);
+    };
+
   private:
     static constexpr int MaxTurn = 18;
 
@@ -345,12 +363,14 @@ class ExpectedScoreCalculator
                                                    const TableConfig &table_config,
                                                    const RoundState &round_state,
                                                    const TableState &table_state,
-                                                   const PlayerState &player);
+                                                   const PlayerState &player,
+                                                   Profile *profile = nullptr);
 
     static std::tuple<std::vector<Stat>, int>
     calc(const Config &config, const TableConfig &table_config,
          const RoundState &round_state, const TableState &table_state,
-         const PlayerState &player, const MergedCount &wall);
+         const PlayerState &player, const MergedCount &wall,
+         Profile *profile = nullptr);
 
   private:
     class GraphBuilder;
@@ -360,13 +380,15 @@ class ExpectedScoreCalculator
                                const RoundState &round_state,
                                const TableState &table_state, const MergedCount &wall,
                                const SeparatedCount &hand_counts,
-                               GraphBuilder &graph_builder, std::vector<Stat> &stats);
+                               GraphBuilder &graph_builder, std::vector<Stat> &stats,
+                               Profile *profile);
     static void
     calc_discard_hand(const Config &config, PlayerState &player,
                       const TableConfig &table_config, const RoundState &round_state,
                       const TableState &table_state, const MergedCount &wall,
                       SeparatedCount &hand_counts, SeparatedCount &wall_counts,
-                      GraphBuilder &graph_builder, std::vector<Stat> &stats);
+                      GraphBuilder &graph_builder, std::vector<Stat> &stats,
+                      Profile *profile);
     static EdgeCsr build_edge_csr(const Graph &graph);
     static void
     calc_stats(const Config &config, Graph &graph,
@@ -378,7 +400,7 @@ class ExpectedScoreCalculator
     static std::tuple<std::vector<Stat>, int>
     calc_core(const Config &config, const TableConfig &table_config,
               const RoundState &round_state, const TableState &table_state,
-              const PlayerState &player, const MergedCount &wall);
+              const PlayerState &player, const MergedCount &wall, Profile *profile);
 };
 } // namespace mahjong
 

@@ -772,10 +772,12 @@ TEST_CASE("build_success_response creates a schema-compliant success document")
 
     build_success_response(req, result, doc);
 
-    REQUIRE(doc.MemberCount() == 9);
+    REQUIRE(doc.MemberCount() == 10);
     REQUIRE(doc["success"].GetBool());
     REQUIRE(std::string(doc["engine_version"].GetString()) == PROJECT_VERSION);
     REQUIRE(doc["api_version"].GetInt() == 1);
+    REQUIRE(doc["profile"].MemberCount() == 12);
+    REQUIRE(doc["profile"]["graph_build_us"].GetInt64() == 0);
 
     const rapidjson::Value &input = doc["input"];
     REQUIRE(input.MemberCount() == 8);

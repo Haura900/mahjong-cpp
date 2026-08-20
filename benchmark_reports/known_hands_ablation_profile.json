@@ -1,0 +1,1265 @@
+[
+  {
+    "hand": "147m258p369s11122z",
+    "config": "000",
+    "searched": 3045535,
+    "engine_time_ms": 25556.709,
+    "wall_time_ms": 25563.024880000285,
+    "profile": {
+      "graph_build_us": 11986721,
+      "csr_build_us": 829711,
+      "dp_us": 12705987,
+      "draw_vertices": 1083614,
+      "discard_vertices": 1961920,
+      "edges": 11097654,
+      "necessary_tile_calculator_calls": 1083614,
+      "unnecessary_tile_calculator_calls": 5357572,
+      "prune_high_shanten_tegawari": 0,
+      "prune_high_shanten_shanten_down": 0,
+      "prune_shanten_down_multiple_discards": 0,
+      "prune_noop_tegawari": 0
+    },
+    "rows": [
+      {
+        "tile": 26,
+        "ev": 281.9693,
+        "win_prob": 0.067,
+        "tenpai_prob": 0.2138
+      },
+      {
+        "tile": 0,
+        "ev": 281.9519,
+        "win_prob": 0.067,
+        "tenpai_prob": 0.2138
+      },
+      {
+        "tile": 16,
+        "ev": 277.7084,
+        "win_prob": 0.0654,
+        "tenpai_prob": 0.2105
+      },
+      {
+        "tile": 10,
+        "ev": 277.6272,
+        "win_prob": 0.0653,
+        "tenpai_prob": 0.2104
+      },
+      {
+        "tile": 6,
+        "ev": 268.644,
+        "win_prob": 0.062,
+        "tenpai_prob": 0.2046
+      },
+      {
+        "tile": 20,
+        "ev": 268.614,
+        "win_prob": 0.062,
+        "tenpai_prob": 0.2046
+      },
+      {
+        "tile": 23,
+        "ev": 267.5044,
+        "win_prob": 0.0633,
+        "tenpai_prob": 0.2076
+      },
+      {
+        "tile": 3,
+        "ev": 267.4771,
+        "win_prob": 0.0633,
+        "tenpai_prob": 0.2075
+      },
+      {
+        "tile": 13,
+        "ev": 264.3073,
+        "win_prob": 0.0633,
+        "tenpai_prob": 0.2075
+      },
+      {
+        "tile": 27,
+        "ev": 44.5466,
+        "win_prob": 0.0079,
+        "tenpai_prob": 0.0435
+      },
+      {
+        "tile": 28,
+        "ev": 21.8702,
+        "win_prob": 0.0046,
+        "tenpai_prob": 0.0239
+      }
+    ]
+  },
+  {
+    "hand": "147m258p369s11122z",
+    "config": "100",
+    "searched": 2283203,
+    "engine_time_ms": 19288.155,
+    "wall_time_ms": 19290.424551999877,
+    "profile": {
+      "graph_build_us": 9399389,
+      "csr_build_us": 608094,
+      "dp_us": 9250599,
+      "draw_vertices": 805605,
+      "discard_vertices": 1477597,
+      "edges": 7875137,
+      "necessary_tile_calculator_calls": 805605,
+      "unnecessary_tile_calculator_calls": 4174043,
+      "prune_high_shanten_tegawari": 10,
+      "prune_high_shanten_shanten_down": 3,
+      "prune_shanten_down_multiple_discards": 0,
+      "prune_noop_tegawari": 0
+    },
+    "rows": [
+      {
+        "tile": 0,
+        "ev": 139.3664,
+        "win_prob": 0.0309,
+        "tenpai_prob": 0.119
+      },
+      {
+        "tile": 26,
+        "ev": 139.3664,
+        "win_prob": 0.0309,
+        "tenpai_prob": 0.119
+      },
+      {
+        "tile": 16,
+        "ev": 138.9651,
+        "win_prob": 0.0305,
+        "tenpai_prob": 0.1182
+      },
+      {
+        "tile": 10,
+        "ev": 138.9524,
+        "win_prob": 0.0305,
+        "tenpai_prob": 0.1182
+      },
+      {
+        "tile": 6,
+        "ev": 135.1488,
+        "win_prob": 0.0293,
+        "tenpai_prob": 0.1153
+      },
+      {
+        "tile": 20,
+        "ev": 135.1488,
+        "win_prob": 0.0293,
+        "tenpai_prob": 0.1153
+      },
+      {
+        "tile": 3,
+        "ev": 134.4545,
+        "win_prob": 0.0295,
+        "tenpai_prob": 0.116
+      },
+      {
+        "tile": 23,
+        "ev": 134.4545,
+        "win_prob": 0.0295,
+        "tenpai_prob": 0.116
+      },
+      {
+        "tile": 13,
+        "ev": 130.4345,
+        "win_prob": 0.0295,
+        "tenpai_prob": 0.1162
+      },
+      {
+        "tile": 27,
+        "ev": 37.9837,
+        "win_prob": 0.0063,
+        "tenpai_prob": 0.0381
+      }
+    ]
+  },
+  {
+    "hand": "147m258p369s11122z",
+    "config": "010",
+    "searched": 3004522,
+    "engine_time_ms": 22868.588,
+    "wall_time_ms": 22871.18797999983,
+    "profile": {
+      "graph_build_us": 11158803,
+      "csr_build_us": 684862,
+      "dp_us": 10987819,
+      "draw_vertices": 1067935,
+      "discard_vertices": 1936586,
+      "edges": 10874975,
+      "necessary_tile_calculator_calls": 1067935,
+      "unnecessary_tile_calculator_calls": 5273126,
+      "prune_high_shanten_tegawari": 0,
+      "prune_high_shanten_shanten_down": 0,
+      "prune_shanten_down_multiple_discards": 3969,
+      "prune_noop_tegawari": 0
+    },
+    "rows": [
+      {
+        "tile": 26,
+        "ev": 281.9693,
+        "win_prob": 0.067,
+        "tenpai_prob": 0.2138
+      },
+      {
+        "tile": 0,
+        "ev": 281.9519,
+        "win_prob": 0.067,
+        "tenpai_prob": 0.2138
+      },
+      {
+        "tile": 16,
+        "ev": 277.7084,
+        "win_prob": 0.0654,
+        "tenpai_prob": 0.2105
+      },
+      {
+        "tile": 10,
+        "ev": 277.6272,
+        "win_prob": 0.0653,
+        "tenpai_prob": 0.2104
+      },
+      {
+        "tile": 6,
+        "ev": 268.644,
+        "win_prob": 0.062,
+        "tenpai_prob": 0.2046
+      },
+      {
+        "tile": 20,
+        "ev": 268.614,
+        "win_prob": 0.062,
+        "tenpai_prob": 0.2046
+      },
+      {
+        "tile": 23,
+        "ev": 267.5044,
+        "win_prob": 0.0633,
+        "tenpai_prob": 0.2076
+      },
+      {
+        "tile": 3,
+        "ev": 267.4771,
+        "win_prob": 0.0633,
+        "tenpai_prob": 0.2075
+      },
+      {
+        "tile": 13,
+        "ev": 264.3286,
+        "win_prob": 0.0633,
+        "tenpai_prob": 0.2075
+      },
+      {
+        "tile": 27,
+        "ev": 44.5466,
+        "win_prob": 0.0079,
+        "tenpai_prob": 0.0435
+      }
+    ]
+  },
+  {
+    "hand": "147m258p369s11122z",
+    "config": "001",
+    "searched": 3045535,
+    "engine_time_ms": 24807.585,
+    "wall_time_ms": 24810.402176000025,
+    "profile": {
+      "graph_build_us": 12024973,
+      "csr_build_us": 755493,
+      "dp_us": 11988446,
+      "draw_vertices": 1083614,
+      "discard_vertices": 1961920,
+      "edges": 11097654,
+      "necessary_tile_calculator_calls": 1083614,
+      "unnecessary_tile_calculator_calls": 5447632,
+      "prune_high_shanten_tegawari": 0,
+      "prune_high_shanten_shanten_down": 0,
+      "prune_shanten_down_multiple_discards": 0,
+      "prune_noop_tegawari": 0
+    },
+    "rows": [
+      {
+        "tile": 26,
+        "ev": 281.9693,
+        "win_prob": 0.067,
+        "tenpai_prob": 0.2138
+      },
+      {
+        "tile": 0,
+        "ev": 281.9519,
+        "win_prob": 0.067,
+        "tenpai_prob": 0.2138
+      },
+      {
+        "tile": 16,
+        "ev": 277.7084,
+        "win_prob": 0.0654,
+        "tenpai_prob": 0.2105
+      },
+      {
+        "tile": 10,
+        "ev": 277.6272,
+        "win_prob": 0.0653,
+        "tenpai_prob": 0.2104
+      },
+      {
+        "tile": 6,
+        "ev": 268.644,
+        "win_prob": 0.062,
+        "tenpai_prob": 0.2046
+      },
+      {
+        "tile": 20,
+        "ev": 268.614,
+        "win_prob": 0.062,
+        "tenpai_prob": 0.2046
+      },
+      {
+        "tile": 23,
+        "ev": 267.5044,
+        "win_prob": 0.0633,
+        "tenpai_prob": 0.2076
+      },
+      {
+        "tile": 3,
+        "ev": 267.4771,
+        "win_prob": 0.0633,
+        "tenpai_prob": 0.2075
+      },
+      {
+        "tile": 13,
+        "ev": 264.3073,
+        "win_prob": 0.0633,
+        "tenpai_prob": 0.2075
+      },
+      {
+        "tile": 27,
+        "ev": 44.5466,
+        "win_prob": 0.0079,
+        "tenpai_prob": 0.0435
+      },
+      {
+        "tile": 28,
+        "ev": 21.8702,
+        "win_prob": 0.0046,
+        "tenpai_prob": 0.0239
+      }
+    ]
+  },
+  {
+    "hand": "147m258p369s11122z",
+    "config": "111",
+    "searched": 2242376,
+    "engine_time_ms": 19700.017,
+    "wall_time_ms": 19702.282770000238,
+    "profile": {
+      "graph_build_us": 8859456,
+      "csr_build_us": 511148,
+      "dp_us": 10303284,
+      "draw_vertices": 789950,
+      "discard_vertices": 1452425,
+      "edges": 7654038,
+      "necessary_tile_calculator_calls": 789950,
+      "unnecessary_tile_calculator_calls": 4179587,
+      "prune_high_shanten_tegawari": 10,
+      "prune_high_shanten_shanten_down": 3,
+      "prune_shanten_down_multiple_discards": 3966,
+      "prune_noop_tegawari": 0
+    },
+    "rows": [
+      {
+        "tile": 0,
+        "ev": 139.3664,
+        "win_prob": 0.0309,
+        "tenpai_prob": 0.119
+      },
+      {
+        "tile": 26,
+        "ev": 139.3664,
+        "win_prob": 0.0309,
+        "tenpai_prob": 0.119
+      },
+      {
+        "tile": 16,
+        "ev": 138.9651,
+        "win_prob": 0.0305,
+        "tenpai_prob": 0.1182
+      },
+      {
+        "tile": 10,
+        "ev": 138.9524,
+        "win_prob": 0.0305,
+        "tenpai_prob": 0.1182
+      },
+      {
+        "tile": 6,
+        "ev": 135.1488,
+        "win_prob": 0.0293,
+        "tenpai_prob": 0.1153
+      },
+      {
+        "tile": 20,
+        "ev": 135.1488,
+        "win_prob": 0.0293,
+        "tenpai_prob": 0.1153
+      },
+      {
+        "tile": 3,
+        "ev": 134.4545,
+        "win_prob": 0.0295,
+        "tenpai_prob": 0.116
+      },
+      {
+        "tile": 23,
+        "ev": 134.4545,
+        "win_prob": 0.0295,
+        "tenpai_prob": 0.116
+      },
+      {
+        "tile": 13,
+        "ev": 130.4559,
+        "win_prob": 0.0295,
+        "tenpai_prob": 0.1162
+      },
+      {
+        "tile": 27,
+        "ev": 37.9837,
+        "win_prob": 0.0063,
+        "tenpai_prob": 0.0381
+      }
+    ]
+  },
+  {
+    "hand": "133m188p469s12467z",
+    "config": "000",
+    "searched": 1443133,
+    "engine_time_ms": 9779.022,
+    "wall_time_ms": 9780.82971799995,
+    "profile": {
+      "graph_build_us": 6448171,
+      "csr_build_us": 307624,
+      "dp_us": 3009105,
+      "draw_vertices": 613464,
+      "discard_vertices": 829668,
+      "edges": 5363372,
+      "necessary_tile_calculator_calls": 613464,
+      "unnecessary_tile_calculator_calls": 3541515,
+      "prune_high_shanten_tegawari": 0,
+      "prune_high_shanten_shanten_down": 0,
+      "prune_shanten_down_multiple_discards": 0,
+      "prune_noop_tegawari": 0
+    },
+    "rows": [
+      {
+        "tile": 21,
+        "ev": 106.1777,
+        "win_prob": 0.006,
+        "tenpai_prob": 0.0384
+      },
+      {
+        "tile": 23,
+        "ev": 106.1777,
+        "win_prob": 0.006,
+        "tenpai_prob": 0.0384
+      },
+      {
+        "tile": 2,
+        "ev": 81.3831,
+        "win_prob": 0.0064,
+        "tenpai_prob": 0.0381
+      },
+      {
+        "tile": 16,
+        "ev": 81.2895,
+        "win_prob": 0.0033,
+        "tenpai_prob": 0.0218
+      },
+      {
+        "tile": 30,
+        "ev": 41.3384,
+        "win_prob": 0.0102,
+        "tenpai_prob": 0.0595
+      },
+      {
+        "tile": 27,
+        "ev": 40.9199,
+        "win_prob": 0.01,
+        "tenpai_prob": 0.0584
+      },
+      {
+        "tile": 28,
+        "ev": 40.9199,
+        "win_prob": 0.01,
+        "tenpai_prob": 0.0584
+      },
+      {
+        "tile": 32,
+        "ev": 40.9199,
+        "win_prob": 0.01,
+        "tenpai_prob": 0.0584
+      },
+      {
+        "tile": 33,
+        "ev": 40.9199,
+        "win_prob": 0.01,
+        "tenpai_prob": 0.0584
+      },
+      {
+        "tile": 9,
+        "ev": 40.7004,
+        "win_prob": 0.0095,
+        "tenpai_prob": 0.0565
+      },
+      {
+        "tile": 26,
+        "ev": 40.6978,
+        "win_prob": 0.0095,
+        "tenpai_prob": 0.0565
+      },
+      {
+        "tile": 0,
+        "ev": 37.2565,
+        "win_prob": 0.0078,
+        "tenpai_prob": 0.0489
+      }
+    ]
+  },
+  {
+    "hand": "133m188p469s12467z",
+    "config": "100",
+    "searched": 1348476,
+    "engine_time_ms": 9144.022,
+    "wall_time_ms": 9145.776864999789,
+    "profile": {
+      "graph_build_us": 6100517,
+      "csr_build_us": 274005,
+      "dp_us": 2758347,
+      "draw_vertices": 570039,
+      "discard_vertices": 778436,
+      "edges": 4936677,
+      "necessary_tile_calculator_calls": 570039,
+      "unnecessary_tile_calculator_calls": 3385808,
+      "prune_high_shanten_tegawari": 10,
+      "prune_high_shanten_shanten_down": 3,
+      "prune_shanten_down_multiple_discards": 0,
+      "prune_noop_tegawari": 0
+    },
+    "rows": [
+      {
+        "tile": 21,
+        "ev": 37.7921,
+        "win_prob": 0.0048,
+        "tenpai_prob": 0.0327
+      },
+      {
+        "tile": 23,
+        "ev": 37.7921,
+        "win_prob": 0.0048,
+        "tenpai_prob": 0.0327
+      },
+      {
+        "tile": 30,
+        "ev": 34.0558,
+        "win_prob": 0.0073,
+        "tenpai_prob": 0.0459
+      },
+      {
+        "tile": 9,
+        "ev": 33.8632,
+        "win_prob": 0.0071,
+        "tenpai_prob": 0.0447
+      },
+      {
+        "tile": 26,
+        "ev": 33.8609,
+        "win_prob": 0.0071,
+        "tenpai_prob": 0.0447
+      },
+      {
+        "tile": 27,
+        "ev": 33.4766,
+        "win_prob": 0.007,
+        "tenpai_prob": 0.0444
+      },
+      {
+        "tile": 28,
+        "ev": 33.4766,
+        "win_prob": 0.007,
+        "tenpai_prob": 0.0444
+      },
+      {
+        "tile": 32,
+        "ev": 33.4766,
+        "win_prob": 0.007,
+        "tenpai_prob": 0.0444
+      },
+      {
+        "tile": 33,
+        "ev": 33.4766,
+        "win_prob": 0.007,
+        "tenpai_prob": 0.0444
+      },
+      {
+        "tile": 0,
+        "ev": 31.8439,
+        "win_prob": 0.0062,
+        "tenpai_prob": 0.0405
+      }
+    ]
+  },
+  {
+    "hand": "133m188p469s12467z",
+    "config": "010",
+    "searched": 1213781,
+    "engine_time_ms": 8092.544,
+    "wall_time_ms": 8094.326796999667,
+    "profile": {
+      "graph_build_us": 5430833,
+      "csr_build_us": 259821,
+      "dp_us": 2388664,
+      "draw_vertices": 524043,
+      "discard_vertices": 689737,
+      "edges": 4490874,
+      "necessary_tile_calculator_calls": 524043,
+      "unnecessary_tile_calculator_calls": 3139706,
+      "prune_high_shanten_tegawari": 0,
+      "prune_high_shanten_shanten_down": 0,
+      "prune_shanten_down_multiple_discards": 4053,
+      "prune_noop_tegawari": 0
+    },
+    "rows": [
+      {
+        "tile": 21,
+        "ev": 114.7817,
+        "win_prob": 0.006,
+        "tenpai_prob": 0.0384
+      },
+      {
+        "tile": 23,
+        "ev": 114.7817,
+        "win_prob": 0.006,
+        "tenpai_prob": 0.0384
+      },
+      {
+        "tile": 30,
+        "ev": 42.2265,
+        "win_prob": 0.0102,
+        "tenpai_prob": 0.0595
+      },
+      {
+        "tile": 27,
+        "ev": 41.8079,
+        "win_prob": 0.01,
+        "tenpai_prob": 0.0584
+      },
+      {
+        "tile": 28,
+        "ev": 41.8079,
+        "win_prob": 0.01,
+        "tenpai_prob": 0.0584
+      },
+      {
+        "tile": 32,
+        "ev": 41.8079,
+        "win_prob": 0.01,
+        "tenpai_prob": 0.0584
+      },
+      {
+        "tile": 33,
+        "ev": 41.8079,
+        "win_prob": 0.01,
+        "tenpai_prob": 0.0584
+      },
+      {
+        "tile": 9,
+        "ev": 41.5884,
+        "win_prob": 0.0095,
+        "tenpai_prob": 0.0565
+      },
+      {
+        "tile": 26,
+        "ev": 41.5884,
+        "win_prob": 0.0095,
+        "tenpai_prob": 0.0565
+      },
+      {
+        "tile": 0,
+        "ev": 38.1446,
+        "win_prob": 0.0078,
+        "tenpai_prob": 0.0489
+      }
+    ]
+  },
+  {
+    "hand": "133m188p469s12467z",
+    "config": "001",
+    "searched": 1443133,
+    "engine_time_ms": 10062.306,
+    "wall_time_ms": 10064.43368400005,
+    "profile": {
+      "graph_build_us": 6617361,
+      "csr_build_us": 321473,
+      "dp_us": 3109132,
+      "draw_vertices": 613464,
+      "discard_vertices": 829668,
+      "edges": 5363372,
+      "necessary_tile_calculator_calls": 613464,
+      "unnecessary_tile_calculator_calls": 3633235,
+      "prune_high_shanten_tegawari": 0,
+      "prune_high_shanten_shanten_down": 0,
+      "prune_shanten_down_multiple_discards": 0,
+      "prune_noop_tegawari": 0
+    },
+    "rows": [
+      {
+        "tile": 21,
+        "ev": 106.1777,
+        "win_prob": 0.006,
+        "tenpai_prob": 0.0384
+      },
+      {
+        "tile": 23,
+        "ev": 106.1777,
+        "win_prob": 0.006,
+        "tenpai_prob": 0.0384
+      },
+      {
+        "tile": 2,
+        "ev": 81.3831,
+        "win_prob": 0.0064,
+        "tenpai_prob": 0.0381
+      },
+      {
+        "tile": 16,
+        "ev": 81.2895,
+        "win_prob": 0.0033,
+        "tenpai_prob": 0.0218
+      },
+      {
+        "tile": 30,
+        "ev": 41.3384,
+        "win_prob": 0.0102,
+        "tenpai_prob": 0.0595
+      },
+      {
+        "tile": 27,
+        "ev": 40.9199,
+        "win_prob": 0.01,
+        "tenpai_prob": 0.0584
+      },
+      {
+        "tile": 28,
+        "ev": 40.9199,
+        "win_prob": 0.01,
+        "tenpai_prob": 0.0584
+      },
+      {
+        "tile": 32,
+        "ev": 40.9199,
+        "win_prob": 0.01,
+        "tenpai_prob": 0.0584
+      },
+      {
+        "tile": 33,
+        "ev": 40.9199,
+        "win_prob": 0.01,
+        "tenpai_prob": 0.0584
+      },
+      {
+        "tile": 9,
+        "ev": 40.7004,
+        "win_prob": 0.0095,
+        "tenpai_prob": 0.0565
+      },
+      {
+        "tile": 26,
+        "ev": 40.6978,
+        "win_prob": 0.0095,
+        "tenpai_prob": 0.0565
+      },
+      {
+        "tile": 0,
+        "ev": 37.2565,
+        "win_prob": 0.0078,
+        "tenpai_prob": 0.0489
+      }
+    ]
+  },
+  {
+    "hand": "133m188p469s12467z",
+    "config": "111",
+    "searched": 1141140,
+    "engine_time_ms": 7666.664,
+    "wall_time_ms": 7668.785689999822,
+    "profile": {
+      "graph_build_us": 5215479,
+      "csr_build_us": 234482,
+      "dp_us": 2205064,
+      "draw_vertices": 491427,
+      "discard_vertices": 649712,
+      "edges": 4161367,
+      "necessary_tile_calculator_calls": 491427,
+      "unnecessary_tile_calculator_calls": 3109352,
+      "prune_high_shanten_tegawari": 10,
+      "prune_high_shanten_shanten_down": 3,
+      "prune_shanten_down_multiple_discards": 4050,
+      "prune_noop_tegawari": 0
+    },
+    "rows": [
+      {
+        "tile": 21,
+        "ev": 41.4368,
+        "win_prob": 0.0048,
+        "tenpai_prob": 0.0327
+      },
+      {
+        "tile": 23,
+        "ev": 41.4368,
+        "win_prob": 0.0048,
+        "tenpai_prob": 0.0327
+      },
+      {
+        "tile": 30,
+        "ev": 34.1992,
+        "win_prob": 0.0073,
+        "tenpai_prob": 0.0459
+      },
+      {
+        "tile": 9,
+        "ev": 34.0065,
+        "win_prob": 0.0071,
+        "tenpai_prob": 0.0447
+      },
+      {
+        "tile": 26,
+        "ev": 34.0065,
+        "win_prob": 0.0071,
+        "tenpai_prob": 0.0447
+      },
+      {
+        "tile": 27,
+        "ev": 33.62,
+        "win_prob": 0.007,
+        "tenpai_prob": 0.0444
+      },
+      {
+        "tile": 28,
+        "ev": 33.62,
+        "win_prob": 0.007,
+        "tenpai_prob": 0.0444
+      },
+      {
+        "tile": 32,
+        "ev": 33.62,
+        "win_prob": 0.007,
+        "tenpai_prob": 0.0444
+      },
+      {
+        "tile": 33,
+        "ev": 33.62,
+        "win_prob": 0.007,
+        "tenpai_prob": 0.0444
+      },
+      {
+        "tile": 0,
+        "ev": 31.9872,
+        "win_prob": 0.0062,
+        "tenpai_prob": 0.0405
+      }
+    ]
+  },
+  {
+    "hand": "2359m23358p89s125z",
+    "config": "000",
+    "searched": 3886491,
+    "engine_time_ms": 31210.007,
+    "wall_time_ms": 31212.885683000422,
+    "profile": {
+      "graph_build_us": 15214451,
+      "csr_build_us": 899997,
+      "dp_us": 15046598,
+      "draw_vertices": 1539150,
+      "discard_vertices": 2347340,
+      "edges": 13766865,
+      "necessary_tile_calculator_calls": 1539150,
+      "unnecessary_tile_calculator_calls": 7605599,
+      "prune_high_shanten_tegawari": 0,
+      "prune_high_shanten_shanten_down": 0,
+      "prune_shanten_down_multiple_discards": 0,
+      "prune_noop_tegawari": 0
+    },
+    "rows": [
+      {
+        "tile": 28,
+        "ev": 86.0893,
+        "win_prob": 0.0297,
+        "tenpai_prob": 0.1136
+      },
+      {
+        "tile": 31,
+        "ev": 86.0893,
+        "win_prob": 0.0297,
+        "tenpai_prob": 0.1136
+      },
+      {
+        "tile": 27,
+        "ev": 85.8514,
+        "win_prob": 0.029,
+        "tenpai_prob": 0.1117
+      },
+      {
+        "tile": 8,
+        "ev": 82.0433,
+        "win_prob": 0.0295,
+        "tenpai_prob": 0.1133
+      },
+      {
+        "tile": 16,
+        "ev": 79.0812,
+        "win_prob": 0.0286,
+        "tenpai_prob": 0.1114
+      },
+      {
+        "tile": 4,
+        "ev": 72.1208,
+        "win_prob": 0.0267,
+        "tenpai_prob": 0.1063
+      },
+      {
+        "tile": 13,
+        "ev": 72.0878,
+        "win_prob": 0.0224,
+        "tenpai_prob": 0.0937
+      },
+      {
+        "tile": 11,
+        "ev": 63.5058,
+        "win_prob": 0.02,
+        "tenpai_prob": 0.0829
+      },
+      {
+        "tile": 10,
+        "ev": 62.772,
+        "win_prob": 0.0201,
+        "tenpai_prob": 0.0864
+      },
+      {
+        "tile": 1,
+        "ev": 50.7493,
+        "win_prob": 0.0189,
+        "tenpai_prob": 0.0844
+      },
+      {
+        "tile": 26,
+        "ev": 48.5496,
+        "win_prob": 0.015,
+        "tenpai_prob": 0.0666
+      },
+      {
+        "tile": 25,
+        "ev": 44.9174,
+        "win_prob": 0.0141,
+        "tenpai_prob": 0.0639
+      },
+      {
+        "tile": 2,
+        "ev": 32.6592,
+        "win_prob": 0.0104,
+        "tenpai_prob": 0.0513
+      }
+    ]
+  },
+  {
+    "hand": "2359m23358p89s125z",
+    "config": "100",
+    "searched": 3737556,
+    "engine_time_ms": 25133.033,
+    "wall_time_ms": 25134.912947999965,
+    "profile": {
+      "graph_build_us": 13947993,
+      "csr_build_us": 760522,
+      "dp_us": 10379147,
+      "draw_vertices": 1463293,
+      "discard_vertices": 2274262,
+      "edges": 12958179,
+      "necessary_tile_calculator_calls": 1463293,
+      "unnecessary_tile_calculator_calls": 7355195,
+      "prune_high_shanten_tegawari": 7,
+      "prune_high_shanten_shanten_down": 3,
+      "prune_shanten_down_multiple_discards": 0,
+      "prune_noop_tegawari": 0
+    },
+    "rows": [
+      {
+        "tile": 28,
+        "ev": 75.8701,
+        "win_prob": 0.0258,
+        "tenpai_prob": 0.1019
+      },
+      {
+        "tile": 31,
+        "ev": 75.8701,
+        "win_prob": 0.0258,
+        "tenpai_prob": 0.1019
+      },
+      {
+        "tile": 27,
+        "ev": 75.6254,
+        "win_prob": 0.0251,
+        "tenpai_prob": 0.1
+      },
+      {
+        "tile": 8,
+        "ev": 73.6468,
+        "win_prob": 0.026,
+        "tenpai_prob": 0.103
+      },
+      {
+        "tile": 16,
+        "ev": 71.3165,
+        "win_prob": 0.0254,
+        "tenpai_prob": 0.1017
+      },
+      {
+        "tile": 4,
+        "ev": 63.1475,
+        "win_prob": 0.0233,
+        "tenpai_prob": 0.0954
+      },
+      {
+        "tile": 1,
+        "ev": 43.4002,
+        "win_prob": 0.0164,
+        "tenpai_prob": 0.0751
+      }
+    ]
+  },
+  {
+    "hand": "2359m23358p89s125z",
+    "config": "010",
+    "searched": 1912825,
+    "engine_time_ms": 12759.038,
+    "wall_time_ms": 12760.729498000273,
+    "profile": {
+      "graph_build_us": 6742686,
+      "csr_build_us": 366490,
+      "dp_us": 5632545,
+      "draw_vertices": 697355,
+      "discard_vertices": 1215469,
+      "edges": 6023715,
+      "necessary_tile_calculator_calls": 697355,
+      "unnecessary_tile_calculator_calls": 3688926,
+      "prune_high_shanten_tegawari": 0,
+      "prune_high_shanten_shanten_down": 0,
+      "prune_shanten_down_multiple_discards": 2205,
+      "prune_noop_tegawari": 0
+    },
+    "rows": [
+      {
+        "tile": 28,
+        "ev": 80.6721,
+        "win_prob": 0.0297,
+        "tenpai_prob": 0.1136
+      },
+      {
+        "tile": 31,
+        "ev": 80.6721,
+        "win_prob": 0.0297,
+        "tenpai_prob": 0.1136
+      },
+      {
+        "tile": 27,
+        "ev": 80.5809,
+        "win_prob": 0.029,
+        "tenpai_prob": 0.1117
+      },
+      {
+        "tile": 8,
+        "ev": 77.2518,
+        "win_prob": 0.0295,
+        "tenpai_prob": 0.1133
+      },
+      {
+        "tile": 16,
+        "ev": 75.433,
+        "win_prob": 0.0286,
+        "tenpai_prob": 0.1114
+      },
+      {
+        "tile": 4,
+        "ev": 68.7239,
+        "win_prob": 0.0267,
+        "tenpai_prob": 0.1063
+      },
+      {
+        "tile": 1,
+        "ev": 48.0659,
+        "win_prob": 0.0189,
+        "tenpai_prob": 0.0844
+      }
+    ]
+  },
+  {
+    "hand": "2359m23358p89s125z",
+    "config": "001",
+    "searched": 3886491,
+    "engine_time_ms": 27558.992,
+    "wall_time_ms": 27561.528306000127,
+    "profile": {
+      "graph_build_us": 15330341,
+      "csr_build_us": 851273,
+      "dp_us": 11333115,
+      "draw_vertices": 1539150,
+      "discard_vertices": 2347340,
+      "edges": 13766865,
+      "necessary_tile_calculator_calls": 1539150,
+      "unnecessary_tile_calculator_calls": 7636974,
+      "prune_high_shanten_tegawari": 0,
+      "prune_high_shanten_shanten_down": 0,
+      "prune_shanten_down_multiple_discards": 0,
+      "prune_noop_tegawari": 0
+    },
+    "rows": [
+      {
+        "tile": 28,
+        "ev": 86.0893,
+        "win_prob": 0.0297,
+        "tenpai_prob": 0.1136
+      },
+      {
+        "tile": 31,
+        "ev": 86.0893,
+        "win_prob": 0.0297,
+        "tenpai_prob": 0.1136
+      },
+      {
+        "tile": 27,
+        "ev": 85.8514,
+        "win_prob": 0.029,
+        "tenpai_prob": 0.1117
+      },
+      {
+        "tile": 8,
+        "ev": 82.0433,
+        "win_prob": 0.0295,
+        "tenpai_prob": 0.1133
+      },
+      {
+        "tile": 16,
+        "ev": 79.0812,
+        "win_prob": 0.0286,
+        "tenpai_prob": 0.1114
+      },
+      {
+        "tile": 4,
+        "ev": 72.1208,
+        "win_prob": 0.0267,
+        "tenpai_prob": 0.1063
+      },
+      {
+        "tile": 13,
+        "ev": 72.0878,
+        "win_prob": 0.0224,
+        "tenpai_prob": 0.0937
+      },
+      {
+        "tile": 11,
+        "ev": 63.5058,
+        "win_prob": 0.02,
+        "tenpai_prob": 0.0829
+      },
+      {
+        "tile": 10,
+        "ev": 62.772,
+        "win_prob": 0.0201,
+        "tenpai_prob": 0.0864
+      },
+      {
+        "tile": 1,
+        "ev": 50.7493,
+        "win_prob": 0.0189,
+        "tenpai_prob": 0.0844
+      },
+      {
+        "tile": 26,
+        "ev": 48.5496,
+        "win_prob": 0.015,
+        "tenpai_prob": 0.0666
+      },
+      {
+        "tile": 25,
+        "ev": 44.9174,
+        "win_prob": 0.0141,
+        "tenpai_prob": 0.0639
+      },
+      {
+        "tile": 2,
+        "ev": 32.6592,
+        "win_prob": 0.0104,
+        "tenpai_prob": 0.0513
+      }
+    ]
+  },
+  {
+    "hand": "2359m23358p89s125z",
+    "config": "111",
+    "searched": 1804601,
+    "engine_time_ms": 12481.943,
+    "wall_time_ms": 12483.872542999961,
+    "profile": {
+      "graph_build_us": 6638656,
+      "csr_build_us": 341699,
+      "dp_us": 5490644,
+      "draw_vertices": 653318,
+      "discard_vertices": 1151282,
+      "edges": 5462909,
+      "necessary_tile_calculator_calls": 653318,
+      "unnecessary_tile_calculator_calls": 3522327,
+      "prune_high_shanten_tegawari": 7,
+      "prune_high_shanten_shanten_down": 3,
+      "prune_shanten_down_multiple_discards": 2202,
+      "prune_noop_tegawari": 0
+    },
+    "rows": [
+      {
+        "tile": 28,
+        "ev": 70.6062,
+        "win_prob": 0.0258,
+        "tenpai_prob": 0.1019
+      },
+      {
+        "tile": 31,
+        "ev": 70.6062,
+        "win_prob": 0.0258,
+        "tenpai_prob": 0.1019
+      },
+      {
+        "tile": 27,
+        "ev": 70.5067,
+        "win_prob": 0.0251,
+        "tenpai_prob": 0.1
+      },
+      {
+        "tile": 8,
+        "ev": 69.0371,
+        "win_prob": 0.026,
+        "tenpai_prob": 0.103
+      },
+      {
+        "tile": 16,
+        "ev": 67.913,
+        "win_prob": 0.0254,
+        "tenpai_prob": 0.1017
+      },
+      {
+        "tile": 4,
+        "ev": 59.9708,
+        "win_prob": 0.0233,
+        "tenpai_prob": 0.0954
+      },
+      {
+        "tile": 1,
+        "ev": 41.0816,
+        "win_prob": 0.0164,
+        "tenpai_prob": 0.0751
+      }
+    ]
+  }
+]

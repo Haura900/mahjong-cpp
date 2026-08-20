@@ -39,7 +39,8 @@ CalculationResult calculate_result(const Request &req)
     const auto start = std::chrono::steady_clock::now();
     std::tie(result.stats, result.searched) =
         ExpectedScoreCalculator::calc(result.config, req.table_config, req.round_state,
-                                      req.table_state, req.player, req.wall);
+                                      req.table_state, req.player, req.wall,
+                                      &result.profile);
     const auto end = std::chrono::steady_clock::now();
     result.time_us =
         std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();

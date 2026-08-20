@@ -28,6 +28,7 @@ struct CalculationResult
     std::vector<mahjong::ExpectedScoreCalculator::Stat> stats;
     int searched;
     long long time_us;
+    mahjong::ExpectedScoreCalculator::Profile profile;
 };
 
 std::string dump_json(const rapidjson::Document &doc);

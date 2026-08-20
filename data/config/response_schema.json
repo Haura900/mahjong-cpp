@@ -11,7 +11,8 @@
         "shanten",
         "stats",
         "searched",
-        "time"
+        "time",
+        "profile"
       ],
       "additionalProperties": false,
       "properties": {
@@ -47,6 +48,9 @@
         "time": {
           "type": "integer",
           "minimum": 0
+        },
+        "profile": {
+          "$ref": "#/definitions/profile"
         }
       }
     },
@@ -65,6 +69,31 @@
     }
   ],
   "definitions": {
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "graph_build_us", "csr_build_us", "dp_us", "draw_vertices",
+        "discard_vertices", "edges", "necessary_tile_calculator_calls",
+        "unnecessary_tile_calculator_calls", "prune_high_shanten_tegawari",
+        "prune_high_shanten_shanten_down",
+        "prune_shanten_down_multiple_discards", "prune_noop_tegawari"
+      ],
+      "properties": {
+        "graph_build_us": {"type": "integer", "minimum": 0},
+        "csr_build_us": {"type": "integer", "minimum": 0},
+        "dp_us": {"type": "integer", "minimum": 0},
+        "draw_vertices": {"type": "integer", "minimum": 0},
+        "discard_vertices": {"type": "integer", "minimum": 0},
+        "edges": {"type": "integer", "minimum": 0},
+        "necessary_tile_calculator_calls": {"type": "integer", "minimum": 0},
+        "unnecessary_tile_calculator_calls": {"type": "integer", "minimum": 0},
+        "prune_high_shanten_tegawari": {"type": "integer", "minimum": 0},
+        "prune_high_shanten_shanten_down": {"type": "integer", "minimum": 0},
+        "prune_shanten_down_multiple_discards": {"type": "integer", "minimum": 0},
+        "prune_noop_tegawari": {"type": "integer", "minimum": 0}
+      }
+    },
     "tile": {
       "type": "integer",
       "minimum": 0,

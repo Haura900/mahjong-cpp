@@ -593,6 +593,29 @@ void build_success_response(const Request &req, const CalculationResult &result,
     doc.AddMember("searched", result.searched, allocator);
     doc.AddMember("time", static_cast<int64_t>(result.time_us), allocator);
 
+    rapidjson::Value profile(rapidjson::kObjectType);
+    profile.AddMember("graph_build_us",
+                      static_cast<int64_t>(result.profile.graph_build_us), allocator);
+    profile.AddMember("csr_build_us",
+                      static_cast<int64_t>(result.profile.csr_build_us), allocator);
+    profile.AddMember("dp_us", static_cast<int64_t>(result.profile.dp_us), allocator);
+    profile.AddMember("draw_vertices", result.profile.draw_vertices, allocator);
+    profile.AddMember("discard_vertices", result.profile.discard_vertices, allocator);
+    profile.AddMember("edges", result.profile.edges, allocator);
+    profile.AddMember("necessary_tile_calculator_calls",
+                      result.profile.necessary_tile_calculator_calls, allocator);
+    profile.AddMember("unnecessary_tile_calculator_calls",
+                      result.profile.unnecessary_tile_calculator_calls, allocator);
+    profile.AddMember("prune_high_shanten_tegawari",
+                      result.profile.prune_high_shanten_tegawari, allocator);
+    profile.AddMember("prune_high_shanten_shanten_down",
+                      result.profile.prune_high_shanten_shanten_down, allocator);
+    profile.AddMember("prune_shanten_down_multiple_discards",
+                      result.profile.prune_shanten_down_multiple_discards, allocator);
+    profile.AddMember("prune_noop_tegawari",
+                      result.profile.prune_noop_tegawari, allocator);
+    doc.AddMember("profile", profile, allocator);
+
     rapidjson::Value config_val(rapidjson::kObjectType);
     config_val.AddMember("enable_reddora", result.config.enable_reddora, allocator);
     config_val.AddMember("enable_uradora", result.config.enable_uradora, allocator);
