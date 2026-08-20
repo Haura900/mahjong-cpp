@@ -45,14 +45,6 @@ class ExpectedScoreCalculator
         bool enable_tegawari = true;
         /* disable shanten-down and tegawari automatically at 4+ shanten */
         bool auto_disable_deep_search = true;
-        /* cap tegawari/shanten-down exploration by exchange distance (-1: unlimited) */
-        int max_deep_exchange_distance = -1;
-        /* prune tegawari and shanten-down extensions at 4+ shanten */
-        bool prune_high_shanten_deep_search = false;
-        /* prune shanten-down when two or more shanten-preserving discards exist */
-        bool prune_shanten_down_with_multiple_discards = false;
-        /* prune non-improving draw/discard cycles that restore the same hand */
-        bool prune_noop_tegawari = false;
         /* score closed tenpai continuations as riichi */
         bool enable_riichi = true;
         /* include one shanten-improving call; first-call ryanmen chi is excluded */
@@ -61,7 +53,9 @@ class ExpectedScoreCalculator
         bool enable_turn_yaku = false;
         /* calculate value */
         bool calc_stats = true;
-        /* Calculate only exp_score. Other probability and contribution outputs are empty. */
+        /* Exact EV-only fast path. exp_score and recommendation match full DP;
+         * tenpai/win/call/yaku/Shapley statistics are intentionally not produced.
+         * It cannot be combined with yaku or Shapley statistics. */
         bool calc_exp_score_only = false;
         /* Approximate share of completed wins scored as ron (0 restores legacy). */
         double ron_rate = 0.0;
@@ -148,10 +142,6 @@ class ExpectedScoreCalculator
         std::uint64_t edges = 0;
         std::uint64_t necessary_tile_calculator_calls = 0;
         std::uint64_t unnecessary_tile_calculator_calls = 0;
-        std::uint64_t prune_high_shanten_tegawari = 0;
-        std::uint64_t prune_high_shanten_shanten_down = 0;
-        std::uint64_t prune_shanten_down_multiple_discards = 0;
-        std::uint64_t prune_noop_tegawari = 0;
         /* base, turn-yaku-on, turn-yaku-off; populated by the 3-pass overlay. */
         std::array<CoreInvocation, 3> core_invocations{};
         long long merge_turn_yaku_overlay_us = 0;

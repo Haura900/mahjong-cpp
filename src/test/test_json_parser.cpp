@@ -412,13 +412,6 @@ TEST_CASE("deserialize_request maps validated JSON to Request")
                        request.AddMember("enable_calls", true, allocator);
                        request.AddMember("enable_turn_yaku", true, allocator);
                        request.AddMember("auto_disable_deep_search", false, allocator);
-                       request.AddMember("max_deep_exchange_distance", 2, allocator);
-                       request.AddMember("prune_high_shanten_deep_search", true,
-                                         allocator);
-                       request.AddMember(
-                           "prune_shanten_down_with_multiple_discards", true,
-                           allocator);
-                       request.AddMember("prune_noop_tegawari", true, allocator);
                        request.AddMember("ron_rate", 0.7, allocator);
                        request.AddMember("remaining_tiles", 22, allocator);
                        request.AddMember("enable_other_win_stop", true, allocator);
@@ -446,10 +439,6 @@ TEST_CASE("deserialize_request maps validated JSON to Request")
         CHECK(req.config.enable_calls);
         CHECK(req.config.enable_turn_yaku);
         CHECK_FALSE(req.config.auto_disable_deep_search);
-        CHECK(req.config.max_deep_exchange_distance == 2);
-        CHECK(req.config.prune_high_shanten_deep_search);
-        CHECK(req.config.prune_shanten_down_with_multiple_discards);
-        CHECK(req.config.prune_noop_tegawari);
         CHECK(req.calc_stats_explicit);
         CHECK(req.config.ron_rate == Approx(0.7));
         CHECK(req.config.remaining_tiles == 22);
@@ -778,7 +767,7 @@ TEST_CASE("build_success_response creates a schema-compliant success document")
     REQUIRE(doc["success"].GetBool());
     REQUIRE(std::string(doc["engine_version"].GetString()) == PROJECT_VERSION);
     REQUIRE(doc["api_version"].GetInt() == 1);
-    REQUIRE(doc["profile"].MemberCount() == 12);
+    REQUIRE(doc["profile"].MemberCount() == 10);
     REQUIRE(doc["profile"]["graph_build_us"].GetInt64() == 0);
 
     const rapidjson::Value &input = doc["input"];
@@ -798,17 +787,12 @@ TEST_CASE("build_success_response creates a schema-compliant success document")
     REQUIRE(input["wall"].Size() == 37);
 
     const rapidjson::Value &config = doc["config"];
-    REQUIRE(config.MemberCount() == 17);
+    REQUIRE(config.MemberCount() == 13);
     REQUIRE(config["enable_reddora"].GetBool());
     REQUIRE_FALSE(config["enable_uradora"].GetBool());
     REQUIRE(config["enable_shanten_down"].GetBool());
     REQUIRE_FALSE(config["enable_tegawari"].GetBool());
     REQUIRE(config["auto_disable_deep_search"].GetBool());
-    REQUIRE(config["max_deep_exchange_distance"].GetInt() == -1);
-    REQUIRE_FALSE(config["prune_high_shanten_deep_search"].GetBool());
-    REQUIRE_FALSE(
-        config["prune_shanten_down_with_multiple_discards"].GetBool());
-    REQUIRE_FALSE(config["prune_noop_tegawari"].GetBool());
     REQUIRE(config["t_min"].GetInt() == 1);
     REQUIRE(config["t_max"].GetInt() == 18);
     REQUIRE(config["sum"].GetInt() == 62);

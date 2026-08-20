@@ -30,11 +30,6 @@ ExpectedScoreCalculator::Profile::operator+=(const Profile &other)
     edges += other.edges;
     necessary_tile_calculator_calls += other.necessary_tile_calculator_calls;
     unnecessary_tile_calculator_calls += other.unnecessary_tile_calculator_calls;
-    prune_high_shanten_tegawari += other.prune_high_shanten_tegawari;
-    prune_high_shanten_shanten_down += other.prune_high_shanten_shanten_down;
-    prune_shanten_down_multiple_discards +=
-        other.prune_shanten_down_multiple_discards;
-    prune_noop_tegawari += other.prune_noop_tegawari;
     for (std::size_t i = 0; i < core_invocations.size(); ++i) {
         core_invocations[i].graph_build_us += other.core_invocations[i].graph_build_us;
         core_invocations[i].csr_build_us += other.core_invocations[i].csr_build_us;
@@ -1136,20 +1131,12 @@ ExpectedScoreCalculator::GraphBuilder::build_node(const bool draw,
                 frame.flags = add_red5_flags(wait);
 
                 const bool can_extend_search =
-                    exchange_distance_ + frame.shanten < shanten_org_ + config_.extra &&
-                    (config_.max_deep_exchange_distance < 0 ||
-                     exchange_distance_ < config_.max_deep_exchange_distance);
+                    exchange_distance_ + frame.shanten < shanten_org_ + config_.extra;
                 const bool after_dynamic_call =
                     player_.num_melds() > initial_meld_count_;
                 const bool allow_tegawari =
                     config_.enable_tegawari && !after_dynamic_call &&
-                    frame.riichi_state == NoRiichi && can_extend_search &&
-                    !(config_.prune_high_shanten_deep_search && frame.shanten >= 4);
-                if (config_.enable_tegawari && !after_dynamic_call &&
-                    frame.riichi_state == NoRiichi && can_extend_search &&
-                    config_.prune_high_shanten_deep_search && frame.shanten >= 4) {
-                    ++profile_.prune_high_shanten_tegawari;
-                }
+                    frame.riichi_state == NoRiichi && can_extend_search;
                 frame.candidates =
                     allow_tegawari ? wall_mask_ : wall_mask_ & frame.flags;
 
@@ -1180,28 +1167,12 @@ ExpectedScoreCalculator::GraphBuilder::build_node(const bool draw,
                 frame.flags = add_red5_flags(disc);
 
                 const bool can_extend_search =
-                    exchange_distance_ + frame.shanten < shanten_org_ + config_.extra &&
-                    (config_.max_deep_exchange_distance < 0 ||
-                     exchange_distance_ < config_.max_deep_exchange_distance);
+                    exchange_distance_ + frame.shanten < shanten_org_ + config_.extra;
                 const bool after_dynamic_call =
                     player_.num_melds() > initial_meld_count_;
                 const bool allow_shanten_down =
                     config_.enable_shanten_down && !after_dynamic_call &&
-                    frame.riichi_state == NoRiichi && can_extend_search &&
-                    !(config_.prune_high_shanten_deep_search && frame.shanten >= 4) &&
-                    !(config_.prune_shanten_down_with_multiple_discards &&
-                      frame.shanten >= 2 && normal_tile_type_count(frame.flags) >= 2);
-                if (config_.enable_shanten_down && !after_dynamic_call &&
-                    frame.riichi_state == NoRiichi && can_extend_search) {
-                    if (config_.prune_high_shanten_deep_search && frame.shanten >= 4) {
-                        ++profile_.prune_high_shanten_shanten_down;
-                    }
-                    else if (config_.prune_shanten_down_with_multiple_discards &&
-                             frame.shanten >= 2 &&
-                             normal_tile_type_count(frame.flags) >= 2) {
-                        ++profile_.prune_shanten_down_multiple_discards;
-                    }
-                }
+                    frame.riichi_state == NoRiichi && can_extend_search;
                 frame.candidates =
                     allow_shanten_down ? hand_mask_ : hand_mask_ & frame.flags;
 
@@ -1300,27 +1271,6 @@ ExpectedScoreCalculator::GraphBuilder::build_node(const bool draw,
             frame.selected = (frame.flags & (std::uint64_t{1} << frame.tile)) != 0;
             frame.weight = wall_counts_[frame.tile];
             draw_tile(frame.tile);
-
-            if (config_.prune_noop_tegawari && frame.shanten >= 2 &&
-                !frame.selected) {
-                ++profile_.unnecessary_tile_calculator_calls;
-                const auto [discard_type, discard_shanten, discard_mask] =
-                    UnnecessaryTileCalculator::calc(
-                        player_.hand, player_.num_melds(), config_.shanten_type,
-                        table_config_.game_mode);
-                (void)discard_type;
-                if (discard_shanten == frame.shanten) {
-                    const std::uint64_t concrete_discards =
-                        add_red5_flags(discard_mask) & nonzero_mask(hand_counts_);
-                    if (concrete_discards ==
-                        (std::uint64_t{1} << frame.tile)) {
-                        ++profile_.prune_noop_tegawari;
-                        discard_tile(frame.tile);
-                        frame.stage = Stage::DrawNext;
-                        continue;
-                    }
-                }
-            }
 
             if (config_.enable_turn_yaku && frame.riichi_state != NoRiichi &&
                 frame.shanten == 0 && frame.selected) {

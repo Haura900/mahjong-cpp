@@ -1,5 +1,12 @@
 # ExpectedScoreCalculator: 次の高速化方針
 
+> **Formal baseline (2026-08-21):** the compact transition graph and the exact
+> `calc_exp_score_only` path are production features. Failed high-shanten,
+> shanten-down, noop-tegawari and exchange-distance pruning experiments, the
+> HandAnalysisCache, and unfinished oracle analysis are not part of the
+> production implementation. Future comparisons use the approximately 10 s
+> exact EV-only baseline, not the old 47 s implementation.
+
 ## 結論
 
 次に実装すべきものは新たな枝刈りではない。`exp_score` だけを必要とする呼び出し用の **厳密な opt-in fast path** は実装済みである。turn-yaku 3-pass を個別計測した結果、巨大なのは base だけだった。次の第一候補はbase graph buildの direct packed transition graph化である。

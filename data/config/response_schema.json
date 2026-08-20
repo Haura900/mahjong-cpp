@@ -75,9 +75,8 @@
       "required": [
         "graph_build_us", "csr_build_us", "dp_us", "draw_vertices",
         "discard_vertices", "edges", "necessary_tile_calculator_calls",
-        "unnecessary_tile_calculator_calls", "prune_high_shanten_tegawari",
-        "prune_high_shanten_shanten_down",
-        "prune_shanten_down_multiple_discards", "prune_noop_tegawari"
+        "unnecessary_tile_calculator_calls", "core_invocations",
+        "merge_turn_yaku_overlay_us"
       ],
       "properties": {
         "graph_build_us": {"type": "integer", "minimum": 0},
@@ -88,10 +87,8 @@
         "edges": {"type": "integer", "minimum": 0},
         "necessary_tile_calculator_calls": {"type": "integer", "minimum": 0},
         "unnecessary_tile_calculator_calls": {"type": "integer", "minimum": 0},
-        "prune_high_shanten_tegawari": {"type": "integer", "minimum": 0},
-        "prune_high_shanten_shanten_down": {"type": "integer", "minimum": 0},
-        "prune_shanten_down_multiple_discards": {"type": "integer", "minimum": 0},
-        "prune_noop_tegawari": {"type": "integer", "minimum": 0}
+        "core_invocations": {"type": "array"},
+        "merge_turn_yaku_overlay_us": {"type": "integer", "minimum": 0}
       }
     },
     "tile": {
@@ -225,19 +222,6 @@
           "type": "boolean"
         },
         "auto_disable_deep_search": {
-          "type": "boolean"
-        },
-        "max_deep_exchange_distance": {
-          "type": "integer",
-          "minimum": -1
-        },
-        "prune_high_shanten_deep_search": {
-          "type": "boolean"
-        },
-        "prune_shanten_down_with_multiple_discards": {
-          "type": "boolean"
-        },
-        "prune_noop_tegawari": {
           "type": "boolean"
         },
         "enable_riichi": {

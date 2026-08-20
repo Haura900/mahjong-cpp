@@ -91,21 +91,6 @@ Request make_request(const rapidjson::Value &doc)
     if (doc.HasMember("auto_disable_deep_search")) {
         req.config.auto_disable_deep_search = doc["auto_disable_deep_search"].GetBool();
     }
-    if (doc.HasMember("max_deep_exchange_distance")) {
-        req.config.max_deep_exchange_distance =
-            doc["max_deep_exchange_distance"].GetInt();
-    }
-    if (doc.HasMember("prune_high_shanten_deep_search")) {
-        req.config.prune_high_shanten_deep_search =
-            doc["prune_high_shanten_deep_search"].GetBool();
-    }
-    if (doc.HasMember("prune_shanten_down_with_multiple_discards")) {
-        req.config.prune_shanten_down_with_multiple_discards =
-            doc["prune_shanten_down_with_multiple_discards"].GetBool();
-    }
-    if (doc.HasMember("prune_noop_tegawari")) {
-        req.config.prune_noop_tegawari = doc["prune_noop_tegawari"].GetBool();
-    }
     if (doc.HasMember("enable_riichi")) {
         req.config.enable_riichi = doc["enable_riichi"].GetBool();
     }
@@ -613,14 +598,6 @@ void build_success_response(const Request &req, const CalculationResult &result,
                       result.profile.necessary_tile_calculator_calls, allocator);
     profile.AddMember("unnecessary_tile_calculator_calls",
                       result.profile.unnecessary_tile_calculator_calls, allocator);
-    profile.AddMember("prune_high_shanten_tegawari",
-                      result.profile.prune_high_shanten_tegawari, allocator);
-    profile.AddMember("prune_high_shanten_shanten_down",
-                      result.profile.prune_high_shanten_shanten_down, allocator);
-    profile.AddMember("prune_shanten_down_multiple_discards",
-                      result.profile.prune_shanten_down_multiple_discards, allocator);
-    profile.AddMember("prune_noop_tegawari",
-                      result.profile.prune_noop_tegawari, allocator);
     rapidjson::Value core_invocations(rapidjson::kArrayType);
     for (const auto &core : result.profile.core_invocations) {
         rapidjson::Value entry(rapidjson::kObjectType);
@@ -648,15 +625,6 @@ void build_success_response(const Request &req, const CalculationResult &result,
     config_val.AddMember("enable_tegawari", result.config.enable_tegawari, allocator);
     config_val.AddMember("auto_disable_deep_search",
                          result.config.auto_disable_deep_search, allocator);
-    config_val.AddMember("max_deep_exchange_distance",
-                         result.config.max_deep_exchange_distance, allocator);
-    config_val.AddMember("prune_high_shanten_deep_search",
-                         result.config.prune_high_shanten_deep_search, allocator);
-    config_val.AddMember("prune_shanten_down_with_multiple_discards",
-                         result.config.prune_shanten_down_with_multiple_discards,
-                         allocator);
-    config_val.AddMember("prune_noop_tegawari",
-                         result.config.prune_noop_tegawari, allocator);
     config_val.AddMember("enable_riichi", result.config.enable_riichi, allocator);
     if (result.config.enable_calls) {
         config_val.AddMember("enable_calls", true, allocator);
