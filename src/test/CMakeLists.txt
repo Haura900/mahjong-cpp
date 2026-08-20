@@ -14,8 +14,8 @@ else()
 endif()
 
 file(GLOB_RECURSE SRC_FILES ../mahjong/*.cpp ../compare/*.cpp)
-set(SERVER_TEST_SRC ../server/json_parser.cpp ../server/request_processor.cpp
-                    ../server/server.cpp)
+set(SERVER_TEST_SRC ../server/engine_api.cpp ../server/json_parser.cpp
+                    ../server/request_processor.cpp ../server/server.cpp)
 set(CMAKE_TESTCASE_DIR ${CMAKE_SOURCE_DIR}/data/testcase)
 add_definitions("-DCMAKE_TESTCASE_DIR=\"${CMAKE_TESTCASE_DIR}\"")
 

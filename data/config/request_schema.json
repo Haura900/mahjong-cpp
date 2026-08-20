@@ -57,6 +57,15 @@
     "auto_disable_deep_search": {
       "type": "boolean"
     },
+    "prune_high_shanten_deep_search": {
+      "type": "boolean"
+    },
+    "prune_shanten_down_with_multiple_discards": {
+      "type": "boolean"
+    },
+    "prune_noop_tegawari": {
+      "type": "boolean"
+    },
     "enable_riichi": {
       "type": "boolean"
     },

@@ -141,6 +141,21 @@ std::uint64_t nonzero_mask(const SeparatedCount &counts) noexcept
     return mask;
 }
 
+int normal_tile_type_count(std::uint64_t mask) noexcept
+{
+    if (mask & (std::uint64_t{1} << Tile::RedManzu5)) {
+        mask |= std::uint64_t{1} << Tile::Manzu5;
+    }
+    if (mask & (std::uint64_t{1} << Tile::RedPinzu5)) {
+        mask |= std::uint64_t{1} << Tile::Pinzu5;
+    }
+    if (mask & (std::uint64_t{1} << Tile::RedSouzu5)) {
+        mask |= std::uint64_t{1} << Tile::Souzu5;
+    }
+    mask &= (std::uint64_t{1} << 34) - 1;
+    return popcount(mask);
+}
+
 MergedCount to_merged_count(const SeparatedCount &counts)
 {
     MergedCount merged = counts;
@@ -1092,7 +1107,8 @@ ExpectedScoreCalculator::GraphBuilder::build_node(const bool draw,
                     player_.num_melds() > initial_meld_count_;
                 const bool allow_tegawari =
                     config_.enable_tegawari && !after_dynamic_call &&
-                    frame.riichi_state == NoRiichi && can_extend_search;
+                    frame.riichi_state == NoRiichi && can_extend_search &&
+                    !(config_.prune_high_shanten_deep_search && shanten >= 4);
                 frame.candidates =
                     allow_tegawari ? wall_mask_ : wall_mask_ & frame.flags;
 
@@ -1127,7 +1143,10 @@ ExpectedScoreCalculator::GraphBuilder::build_node(const bool draw,
                     player_.num_melds() > initial_meld_count_;
                 const bool allow_shanten_down =
                     config_.enable_shanten_down && !after_dynamic_call &&
-                    frame.riichi_state == NoRiichi && can_extend_search;
+                    frame.riichi_state == NoRiichi && can_extend_search &&
+                    !(config_.prune_high_shanten_deep_search && shanten >= 4) &&
+                    !(config_.prune_shanten_down_with_multiple_discards &&
+                      shanten >= 2 && normal_tile_type_count(frame.flags) >= 2);
                 frame.candidates =
                     allow_shanten_down ? hand_mask_ : hand_mask_ & frame.flags;
 
@@ -1225,6 +1244,25 @@ ExpectedScoreCalculator::GraphBuilder::build_node(const bool draw,
             frame.selected = (frame.flags & (std::uint64_t{1} << frame.tile)) != 0;
             frame.weight = wall_counts_[frame.tile];
             draw_tile(frame.tile);
+
+            if (config_.prune_noop_tegawari && frame.shanten >= 2 &&
+                !frame.selected) {
+                const auto [discard_type, discard_shanten, discard_mask] =
+                    UnnecessaryTileCalculator::calc(
+                        player_.hand, player_.num_melds(), config_.shanten_type,
+                        table_config_.game_mode);
+                (void)discard_type;
+                if (discard_shanten == frame.shanten) {
+                    const std::uint64_t concrete_discards =
+                        add_red5_flags(discard_mask) & nonzero_mask(hand_counts_);
+                    if (concrete_discards ==
+                        (std::uint64_t{1} << frame.tile)) {
+                        discard_tile(frame.tile);
+                        frame.stage = Stage::DrawNext;
+                        continue;
+                    }
+                }
+            }
 
             if (config_.enable_turn_yaku && frame.riichi_state != NoRiichi &&
                 frame.shanten == 0 && frame.selected) {

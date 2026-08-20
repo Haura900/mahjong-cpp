@@ -45,6 +45,12 @@ class ExpectedScoreCalculator
         bool enable_tegawari = true;
         /* disable shanten-down and tegawari automatically at 4+ shanten */
         bool auto_disable_deep_search = true;
+        /* prune tegawari and shanten-down extensions at 4+ shanten */
+        bool prune_high_shanten_deep_search = false;
+        /* prune shanten-down when two or more shanten-preserving discards exist */
+        bool prune_shanten_down_with_multiple_discards = false;
+        /* prune non-improving draw/discard cycles that restore the same hand */
+        bool prune_noop_tegawari = false;
         /* score closed tenpai continuations as riichi */
         bool enable_riichi = true;
         /* include one shanten-improving call; first-call ryanmen chi is excluded */
