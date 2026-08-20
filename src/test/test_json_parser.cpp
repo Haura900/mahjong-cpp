@@ -412,6 +412,7 @@ TEST_CASE("deserialize_request maps validated JSON to Request")
                        request.AddMember("enable_calls", true, allocator);
                        request.AddMember("enable_turn_yaku", true, allocator);
                        request.AddMember("auto_disable_deep_search", false, allocator);
+                       request.AddMember("max_deep_exchange_distance", 2, allocator);
                        request.AddMember("prune_high_shanten_deep_search", true,
                                          allocator);
                        request.AddMember(
@@ -445,6 +446,7 @@ TEST_CASE("deserialize_request maps validated JSON to Request")
         CHECK(req.config.enable_calls);
         CHECK(req.config.enable_turn_yaku);
         CHECK_FALSE(req.config.auto_disable_deep_search);
+        CHECK(req.config.max_deep_exchange_distance == 2);
         CHECK(req.config.prune_high_shanten_deep_search);
         CHECK(req.config.prune_shanten_down_with_multiple_discards);
         CHECK(req.config.prune_noop_tegawari);
@@ -796,12 +798,13 @@ TEST_CASE("build_success_response creates a schema-compliant success document")
     REQUIRE(input["wall"].Size() == 37);
 
     const rapidjson::Value &config = doc["config"];
-    REQUIRE(config.MemberCount() == 16);
+    REQUIRE(config.MemberCount() == 17);
     REQUIRE(config["enable_reddora"].GetBool());
     REQUIRE_FALSE(config["enable_uradora"].GetBool());
     REQUIRE(config["enable_shanten_down"].GetBool());
     REQUIRE_FALSE(config["enable_tegawari"].GetBool());
     REQUIRE(config["auto_disable_deep_search"].GetBool());
+    REQUIRE(config["max_deep_exchange_distance"].GetInt() == -1);
     REQUIRE_FALSE(config["prune_high_shanten_deep_search"].GetBool());
     REQUIRE_FALSE(
         config["prune_shanten_down_with_multiple_discards"].GetBool());

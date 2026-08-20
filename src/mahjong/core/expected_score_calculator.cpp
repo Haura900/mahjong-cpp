@@ -1125,7 +1125,9 @@ ExpectedScoreCalculator::GraphBuilder::build_node(const bool draw,
                 frame.flags = add_red5_flags(wait);
 
                 const bool can_extend_search =
-                    exchange_distance_ + shanten < shanten_org_ + config_.extra;
+                    exchange_distance_ + shanten < shanten_org_ + config_.extra &&
+                    (config_.max_deep_exchange_distance < 0 ||
+                     exchange_distance_ < config_.max_deep_exchange_distance);
                 const bool after_dynamic_call =
                     player_.num_melds() > initial_meld_count_;
                 const bool allow_tegawari =
@@ -1167,7 +1169,9 @@ ExpectedScoreCalculator::GraphBuilder::build_node(const bool draw,
                 frame.flags = add_red5_flags(disc);
 
                 const bool can_extend_search =
-                    exchange_distance_ + shanten < shanten_org_ + config_.extra;
+                    exchange_distance_ + shanten < shanten_org_ + config_.extra &&
+                    (config_.max_deep_exchange_distance < 0 ||
+                     exchange_distance_ < config_.max_deep_exchange_distance);
                 const bool after_dynamic_call =
                     player_.num_melds() > initial_meld_count_;
                 const bool allow_shanten_down =

@@ -227,6 +227,10 @@
         "auto_disable_deep_search": {
           "type": "boolean"
         },
+        "max_deep_exchange_distance": {
+          "type": "integer",
+          "minimum": -1
+        },
         "prune_high_shanten_deep_search": {
           "type": "boolean"
         },

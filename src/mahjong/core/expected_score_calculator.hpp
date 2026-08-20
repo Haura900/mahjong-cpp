@@ -45,6 +45,8 @@ class ExpectedScoreCalculator
         bool enable_tegawari = true;
         /* disable shanten-down and tegawari automatically at 4+ shanten */
         bool auto_disable_deep_search = true;
+        /* cap tegawari/shanten-down exploration by exchange distance (-1: unlimited) */
+        int max_deep_exchange_distance = -1;
         /* prune tegawari and shanten-down extensions at 4+ shanten */
         bool prune_high_shanten_deep_search = false;
         /* prune shanten-down when two or more shanten-preserving discards exist */

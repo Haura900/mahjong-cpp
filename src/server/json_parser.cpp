@@ -91,6 +91,10 @@ Request make_request(const rapidjson::Value &doc)
     if (doc.HasMember("auto_disable_deep_search")) {
         req.config.auto_disable_deep_search = doc["auto_disable_deep_search"].GetBool();
     }
+    if (doc.HasMember("max_deep_exchange_distance")) {
+        req.config.max_deep_exchange_distance =
+            doc["max_deep_exchange_distance"].GetInt();
+    }
     if (doc.HasMember("prune_high_shanten_deep_search")) {
         req.config.prune_high_shanten_deep_search =
             doc["prune_high_shanten_deep_search"].GetBool();
@@ -624,6 +628,8 @@ void build_success_response(const Request &req, const CalculationResult &result,
     config_val.AddMember("enable_tegawari", result.config.enable_tegawari, allocator);
     config_val.AddMember("auto_disable_deep_search",
                          result.config.auto_disable_deep_search, allocator);
+    config_val.AddMember("max_deep_exchange_distance",
+                         result.config.max_deep_exchange_distance, allocator);
     config_val.AddMember("prune_high_shanten_deep_search",
                          result.config.prune_high_shanten_deep_search, allocator);
     config_val.AddMember("prune_shanten_down_with_multiple_discards",
