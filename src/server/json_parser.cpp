@@ -129,6 +129,9 @@ Request make_request(const rapidjson::Value &doc)
         req.config.calc_stats = doc["calc_stats"].GetBool();
         req.calc_stats_explicit = true;
     }
+    if (doc.HasMember("calc_exp_score_only")) {
+        req.config.calc_exp_score_only = doc["calc_exp_score_only"].GetBool();
+    }
     if (doc.HasMember("ron_rate")) {
         req.config.ron_rate = doc["ron_rate"].GetDouble();
     }
@@ -618,6 +621,23 @@ void build_success_response(const Request &req, const CalculationResult &result,
                       result.profile.prune_shanten_down_multiple_discards, allocator);
     profile.AddMember("prune_noop_tegawari",
                       result.profile.prune_noop_tegawari, allocator);
+    rapidjson::Value core_invocations(rapidjson::kArrayType);
+    for (const auto &core : result.profile.core_invocations) {
+        rapidjson::Value entry(rapidjson::kObjectType);
+        entry.AddMember("graph_build_us", static_cast<int64_t>(core.graph_build_us),
+                        allocator);
+        entry.AddMember("csr_build_us", static_cast<int64_t>(core.csr_build_us),
+                        allocator);
+        entry.AddMember("dp_us", static_cast<int64_t>(core.dp_us), allocator);
+        entry.AddMember("draw_vertices", core.draw_vertices, allocator);
+        entry.AddMember("discard_vertices", core.discard_vertices, allocator);
+        entry.AddMember("edges", core.edges, allocator);
+        core_invocations.PushBack(entry, allocator);
+    }
+    profile.AddMember("core_invocations", core_invocations, allocator);
+    profile.AddMember("merge_turn_yaku_overlay_us",
+                      static_cast<int64_t>(result.profile.merge_turn_yaku_overlay_us),
+                      allocator);
     doc.AddMember("profile", profile, allocator);
 
     rapidjson::Value config_val(rapidjson::kObjectType);
@@ -650,6 +670,9 @@ void build_success_response(const Request &req, const CalculationResult &result,
     config_val.AddMember("extra", result.config.extra, allocator);
     config_val.AddMember("shanten_type", result.config.shanten_type, allocator);
     config_val.AddMember("calc_stats", result.config.calc_stats, allocator);
+    if (result.config.calc_exp_score_only) {
+        config_val.AddMember("calc_exp_score_only", true, allocator);
+    }
     if (result.config.ron_rate != 0.0) {
         config_val.AddMember("ron_rate", result.config.ron_rate, allocator);
     }

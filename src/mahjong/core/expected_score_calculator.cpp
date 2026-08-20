@@ -35,6 +35,16 @@ ExpectedScoreCalculator::Profile::operator+=(const Profile &other)
     prune_shanten_down_multiple_discards +=
         other.prune_shanten_down_multiple_discards;
     prune_noop_tegawari += other.prune_noop_tegawari;
+    for (std::size_t i = 0; i < core_invocations.size(); ++i) {
+        core_invocations[i].graph_build_us += other.core_invocations[i].graph_build_us;
+        core_invocations[i].csr_build_us += other.core_invocations[i].csr_build_us;
+        core_invocations[i].dp_us += other.core_invocations[i].dp_us;
+        core_invocations[i].draw_vertices += other.core_invocations[i].draw_vertices;
+        core_invocations[i].discard_vertices +=
+            other.core_invocations[i].discard_vertices;
+        core_invocations[i].edges += other.core_invocations[i].edges;
+    }
+    merge_turn_yaku_overlay_us += other.merge_turn_yaku_overlay_us;
     return *this;
 }
 
@@ -808,6 +818,7 @@ class ExpectedScoreCalculator::GraphBuilder
         , hand_mask_(nonzero_mask(hand_counts))
         , wall_mask_(nonzero_mask(wall_counts))
         , profile_(profile)
+        , graph_(config.calc_yaku_stats || config.calc_shapley_stats)
     {
         hand_key_.melds = meld_signature(player_.melds);
     }
@@ -1117,7 +1128,7 @@ ExpectedScoreCalculator::GraphBuilder::build_node(const bool draw,
 
             if (frame.draw) {
                 ++profile_.necessary_tile_calculator_calls;
-                auto [type, shanten, wait] = NecessaryTileCalculator::calc(
+                const auto [type, shanten, wait] = NecessaryTileCalculator::calc(
                     player_.hand, player_.num_melds(), config_.shanten_type,
                     table_config_.game_mode);
                 frame.type = type;
@@ -1125,7 +1136,7 @@ ExpectedScoreCalculator::GraphBuilder::build_node(const bool draw,
                 frame.flags = add_red5_flags(wait);
 
                 const bool can_extend_search =
-                    exchange_distance_ + shanten < shanten_org_ + config_.extra &&
+                    exchange_distance_ + frame.shanten < shanten_org_ + config_.extra &&
                     (config_.max_deep_exchange_distance < 0 ||
                      exchange_distance_ < config_.max_deep_exchange_distance);
                 const bool after_dynamic_call =
@@ -1133,17 +1144,17 @@ ExpectedScoreCalculator::GraphBuilder::build_node(const bool draw,
                 const bool allow_tegawari =
                     config_.enable_tegawari && !after_dynamic_call &&
                     frame.riichi_state == NoRiichi && can_extend_search &&
-                    !(config_.prune_high_shanten_deep_search && shanten >= 4);
+                    !(config_.prune_high_shanten_deep_search && frame.shanten >= 4);
                 if (config_.enable_tegawari && !after_dynamic_call &&
                     frame.riichi_state == NoRiichi && can_extend_search &&
-                    config_.prune_high_shanten_deep_search && shanten >= 4) {
+                    config_.prune_high_shanten_deep_search && frame.shanten >= 4) {
                     ++profile_.prune_high_shanten_tegawari;
                 }
                 frame.candidates =
                     allow_tegawari ? wall_mask_ : wall_mask_ & frame.flags;
 
                 frame.vertex = graph_.add_vertex();
-                graph_[frame.vertex].is_tenpai = shanten == 0;
+                graph_[frame.vertex].is_tenpai = frame.shanten == 0;
                 graph_[frame.vertex].has_open_meld = !player_.is_closed();
                 graph_[frame.vertex].dynamic_called = after_dynamic_call;
                 graph_[frame.vertex].dynamic_call_tile =
@@ -1161,7 +1172,7 @@ ExpectedScoreCalculator::GraphBuilder::build_node(const bool draw,
             }
             else {
                 ++profile_.unnecessary_tile_calculator_calls;
-                auto [type, shanten, disc] = UnnecessaryTileCalculator::calc(
+                const auto [type, shanten, disc] = UnnecessaryTileCalculator::calc(
                     player_.hand, player_.num_melds(), config_.shanten_type,
                     table_config_.game_mode);
                 frame.type = type;
@@ -1169,7 +1180,7 @@ ExpectedScoreCalculator::GraphBuilder::build_node(const bool draw,
                 frame.flags = add_red5_flags(disc);
 
                 const bool can_extend_search =
-                    exchange_distance_ + shanten < shanten_org_ + config_.extra &&
+                    exchange_distance_ + frame.shanten < shanten_org_ + config_.extra &&
                     (config_.max_deep_exchange_distance < 0 ||
                      exchange_distance_ < config_.max_deep_exchange_distance);
                 const bool after_dynamic_call =
@@ -1177,16 +1188,16 @@ ExpectedScoreCalculator::GraphBuilder::build_node(const bool draw,
                 const bool allow_shanten_down =
                     config_.enable_shanten_down && !after_dynamic_call &&
                     frame.riichi_state == NoRiichi && can_extend_search &&
-                    !(config_.prune_high_shanten_deep_search && shanten >= 4) &&
+                    !(config_.prune_high_shanten_deep_search && frame.shanten >= 4) &&
                     !(config_.prune_shanten_down_with_multiple_discards &&
-                      shanten >= 2 && normal_tile_type_count(frame.flags) >= 2);
+                      frame.shanten >= 2 && normal_tile_type_count(frame.flags) >= 2);
                 if (config_.enable_shanten_down && !after_dynamic_call &&
                     frame.riichi_state == NoRiichi && can_extend_search) {
-                    if (config_.prune_high_shanten_deep_search && shanten >= 4) {
+                    if (config_.prune_high_shanten_deep_search && frame.shanten >= 4) {
                         ++profile_.prune_high_shanten_shanten_down;
                     }
                     else if (config_.prune_shanten_down_with_multiple_discards &&
-                             shanten >= 2 &&
+                             frame.shanten >= 2 &&
                              normal_tile_type_count(frame.flags) >= 2) {
                         ++profile_.prune_shanten_down_multiple_discards;
                     }
@@ -1195,7 +1206,7 @@ ExpectedScoreCalculator::GraphBuilder::build_node(const bool draw,
                     allow_shanten_down ? hand_mask_ : hand_mask_ & frame.flags;
 
                 frame.vertex = graph_.add_vertex();
-                graph_[frame.vertex].is_tenpai = shanten == 0;
+                graph_[frame.vertex].is_tenpai = frame.shanten == 0;
                 graph_[frame.vertex].has_open_meld = !player_.is_closed();
                 graph_[frame.vertex].dynamic_called = after_dynamic_call;
                 graph_[frame.vertex].dynamic_call_tile =
@@ -1439,10 +1450,9 @@ ExpectedScoreCalculator::build_edge_csr(const Graph &graph)
              edge = graph.edges[edge].next_out) {
             ++edge_csr.draw_edge_offsets[vi + 1];
         }
-        for (std::uint32_t edge = graph.first_in_edges[vi]; edge != Graph::NoEdge;
-             edge = graph.edges[edge].next_in) {
-            ++edge_csr.selection_edge_offsets[vi + 1];
-        }
+    }
+    for (const EdgeData &edge : graph.edges) {
+        ++edge_csr.selection_edge_offsets[edge.target + 1];
     }
 
     for (std::size_t vi = 0; vi < vertex_count; ++vi) {
@@ -1460,24 +1470,217 @@ ExpectedScoreCalculator::build_edge_csr(const Graph &graph)
         for (std::uint32_t ei = graph.first_out_edges[vi]; ei != Graph::NoEdge;
              ei = graph.edges[ei].next_out) {
             const EdgeData &edge = graph.edges[ei];
+            const EdgeContributionData contribution =
+                graph.store_contributions ? graph.edge_contributions[ei]
+                                          : EdgeContributionData{};
             edge_csr.draw_edges[draw_positions[vi]++] =
                 DrawEdge{edge.target,
                          edge.weight,
                          edge.score,
-                         edge.contribution_offset,
-                         edge.contribution_count,
+                         contribution.contribution_offset,
+                         contribution.contribution_count,
                          edge.last_score,
-                         edge.last_contribution_offset,
-                         edge.last_contribution_count};
-        }
-        for (std::uint32_t ei = graph.first_in_edges[vi]; ei != Graph::NoEdge;
-             ei = graph.edges[ei].next_in) {
-            const EdgeData &edge = graph.edges[ei];
-            edge_csr.selection_edges[selection_positions[vi]++] =
-                SelectionEdge{edge.source};
+                         contribution.last_contribution_offset,
+                         contribution.last_contribution_count};
         }
     }
+    // The former incoming linked-list prepended each new edge.  Fill in reverse
+    // insertion order so selection edge order (and therefore floating-point
+    // reduction order) stays unchanged.
+    for (std::size_t ei = graph.edges.size(); ei-- > 0;) {
+        const EdgeData &edge = graph.edges[ei];
+        edge_csr.selection_edges[selection_positions[edge.target]++] =
+            SelectionEdge{edge.source};
+    }
     return edge_csr;
+}
+
+void ExpectedScoreCalculator::calc_exp_score_stats(
+    const Config &config, Graph &graph, const std::vector<Vertex> &draw_vertices,
+    const std::vector<Vertex> &discard_vertices,
+    const std::vector<std::pair<Vertex, Vertex>> &ippatsu_expiries,
+    const std::vector<CallOption> &call_options, const EdgeCsr &edge_csr,
+    const std::vector<Vertex> &root_vertices, std::vector<Stat> &stats)
+{
+    assert(root_vertices.size() == stats.size());
+    for (auto &stat : stats) {
+        stat.exp_score.assign(config.t_max + 1, 0.0);
+    }
+
+    std::vector<std::vector<const CallOption *>> calls_by_source;
+    if (config.enable_calls) {
+        calls_by_source.resize(graph.num_vertices());
+        for (const auto &option : call_options) {
+            calls_by_source[option.source].push_back(&option);
+        }
+    }
+
+    std::vector<double> turn_tsumo_probability(graph.num_vertices(), 0.0);
+    std::vector<double> turn_win_score(graph.num_vertices(), 0.0);
+    for (int t = config.t_max; t >= config.t_min; --t) {
+        const bool last_turn = config.enable_turn_yaku && t + 1 == LastTurn;
+        struct IppatsuScoreSnapshot
+        {
+            Vertex source;
+            float source_score;
+            float expired_score;
+            int outgoing_weight;
+        };
+        std::vector<IppatsuScoreSnapshot> ippatsu_snapshots;
+        ippatsu_snapshots.reserve(ippatsu_expiries.size());
+        for (const auto &[source, expired] : ippatsu_expiries) {
+            int outgoing_weight = 0;
+            const std::size_t vi = static_cast<std::size_t>(source);
+            for (std::uint32_t ei = edge_csr.draw_edge_offsets[vi];
+                 ei < edge_csr.draw_edge_offsets[vi + 1]; ++ei) {
+                outgoing_weight += edge_csr.draw_edges[ei].weight;
+            }
+            ippatsu_snapshots.push_back(
+                IppatsuScoreSnapshot{source, graph[source].exp_score,
+                                     graph[expired].exp_score, outgoing_weight});
+        }
+
+#ifdef _OPENMP
+#pragma omp parallel for schedule(static)
+#endif
+        for (std::int64_t i = 0; i < static_cast<std::int64_t>(draw_vertices.size());
+             ++i) {
+            const Vertex vertex = draw_vertices[i];
+            VertexData &state = graph[vertex];
+            turn_tsumo_probability[vertex] = 0.0;
+            turn_win_score[vertex] = 0.0;
+            if (t == config.t_max) {
+                continue;
+            }
+
+            const std::size_t vi = static_cast<std::size_t>(vertex);
+            const double previous_score = state.exp_score;
+            double score_delta = 0.0;
+            int immediate_win_weight = 0;
+            double immediate_win_score = 0.0;
+            for (std::uint32_t ei = edge_csr.draw_edge_offsets[vi];
+                 ei < edge_csr.draw_edge_offsets[vi + 1]; ++ei) {
+                const DrawEdge &edge = edge_csr.draw_edges[ei];
+                double score = graph[edge.target].exp_score;
+                const double edge_score = last_turn ? edge.last_score : edge.score;
+                if (edge_score > 0.0) {
+                    score = std::max(edge_score, score);
+                    immediate_win_weight += edge.weight;
+                    immediate_win_score += edge.weight * score;
+                }
+                score_delta += edge.weight * (score - previous_score);
+            }
+            const double denominator = config.sum - t;
+            state.exp_score = previous_score + score_delta / denominator;
+            if (immediate_win_weight > 0) {
+                turn_tsumo_probability[vertex] = immediate_win_weight / denominator;
+                turn_win_score[vertex] = immediate_win_score / immediate_win_weight;
+            }
+        }
+
+        if (t != config.t_max) {
+            const double denominator = config.sum - t;
+            for (const auto &snapshot : ippatsu_snapshots) {
+                const int miss_weight =
+                    std::max(0, config.sum - t - snapshot.outgoing_weight);
+                graph[snapshot.source].exp_score +=
+                    miss_weight * (snapshot.expired_score - snapshot.source_score) /
+                    denominator;
+            }
+
+            for (const Vertex vertex : draw_vertices) {
+                const double tsumo_probability = turn_tsumo_probability[vertex];
+                if (tsumo_probability <= 0.0) {
+                    continue;
+                }
+                const double total_probability =
+                    tsumo_probability <= 0.0 || config.ron_rate <= 0.0
+                        ? tsumo_probability
+                        : tsumo_probability /
+                              (1.0 - config.ron_rate +
+                               config.ron_rate * tsumo_probability);
+                if (total_probability <= tsumo_probability || tsumo_probability >= 1.0) {
+                    continue;
+                }
+                VertexData &state = graph[vertex];
+                const double miss_score =
+                    (state.exp_score - tsumo_probability * turn_win_score[vertex]) /
+                    (1.0 - tsumo_probability);
+                state.exp_score = total_probability * turn_win_score[vertex] +
+                                  (1.0 - total_probability) * miss_score;
+            }
+
+            if (config.enable_other_win_stop) {
+                const int hazard_turn = std::min(LastTurn, t + 1);
+                const int table_turn =
+                    hazard_turn == LastTurn ? LastTurn - 1 : hazard_turn;
+                const double survival = 1.0 - config.other_win_hazard[table_turn];
+                for (const Vertex vertex : draw_vertices) {
+                    graph[vertex].exp_score *= survival;
+                }
+            }
+
+            if (config.enable_calls) {
+                const auto apply_call_slot = [&](const bool allow_chi) {
+                    for (const Vertex vertex : draw_vertices) {
+                        const auto &options = calls_by_source[vertex];
+                        if (options.empty()) {
+                            continue;
+                        }
+                        std::array<const CallOption *, 37> best{};
+                        for (const CallOption *option : options) {
+                            if (option->chi && !allow_chi) {
+                                continue;
+                            }
+                            const CallOption *&selected = best[option->tile];
+                            if (selected == nullptr ||
+                                graph[option->target].exp_score >
+                                    graph[selected->target].exp_score) {
+                                selected = option;
+                            }
+                        }
+                        VertexData &state = graph[vertex];
+                        const float before_score = state.exp_score;
+                        for (const CallOption *option : best) {
+                            if (option == nullptr) {
+                                continue;
+                            }
+                            const float called_score = graph[option->target].exp_score;
+                            if (called_score <= before_score) {
+                                continue;
+                            }
+                            state.exp_score += option->weight / denominator *
+                                               (called_score - before_score);
+                        }
+                    }
+                };
+                apply_call_slot(true);
+                apply_call_slot(false);
+                apply_call_slot(false);
+            }
+        }
+
+#ifdef _OPENMP
+#pragma omp parallel for schedule(static)
+#endif
+        for (std::int64_t i = 0;
+             i < static_cast<std::int64_t>(discard_vertices.size()); ++i) {
+            const Vertex vertex = discard_vertices[i];
+            float best_score = 0.0F;
+            const std::size_t vi = static_cast<std::size_t>(vertex);
+            for (std::uint32_t ei = edge_csr.selection_edge_offsets[vi];
+                 ei < edge_csr.selection_edge_offsets[vi + 1]; ++ei) {
+                best_score = std::max(
+                    best_score,
+                    graph[edge_csr.selection_edges[ei].source].exp_score);
+            }
+            graph[vertex].exp_score = best_score;
+        }
+
+        for (std::size_t i = 0; i < root_vertices.size(); ++i) {
+            stats[i].exp_score[t] = graph[root_vertices[i]].exp_score;
+        }
+    }
 }
 
 void ExpectedScoreCalculator::calc_stats(
@@ -2316,9 +2519,17 @@ void ExpectedScoreCalculator::calc_draw_hand(
     const auto csr_end = std::chrono::steady_clock::now();
     graph_builder.graph().release_adjacency();
     const auto dp_start = std::chrono::steady_clock::now();
-    calc_stats(config, graph_builder.graph(), graph_builder.draw_vertices(),
-               graph_builder.discard_vertices(), graph_builder.ippatsu_expiries(),
-               graph_builder.call_options(), edge_csr, {vertex}, stats);
+    if (config.calc_exp_score_only) {
+        calc_exp_score_stats(config, graph_builder.graph(), graph_builder.draw_vertices(),
+                             graph_builder.discard_vertices(),
+                             graph_builder.ippatsu_expiries(),
+                             graph_builder.call_options(), edge_csr, {vertex}, stats);
+    }
+    else {
+        calc_stats(config, graph_builder.graph(), graph_builder.draw_vertices(),
+                   graph_builder.discard_vertices(), graph_builder.ippatsu_expiries(),
+                   graph_builder.call_options(), edge_csr, {vertex}, stats);
+    }
     const auto dp_end = std::chrono::steady_clock::now();
     if (profile) {
         profile->csr_build_us += std::chrono::duration_cast<std::chrono::microseconds>(
@@ -2402,9 +2613,18 @@ void ExpectedScoreCalculator::calc_discard_hand(
     const auto csr_end = std::chrono::steady_clock::now();
     graph_builder.graph().release_adjacency();
     const auto dp_start = std::chrono::steady_clock::now();
-    calc_stats(config, graph_builder.graph(), graph_builder.draw_vertices(),
-               graph_builder.discard_vertices(), graph_builder.ippatsu_expiries(),
-               graph_builder.call_options(), edge_csr, root_vertices, stats);
+    if (config.calc_exp_score_only) {
+        calc_exp_score_stats(config, graph_builder.graph(), graph_builder.draw_vertices(),
+                             graph_builder.discard_vertices(),
+                             graph_builder.ippatsu_expiries(),
+                             graph_builder.call_options(), edge_csr, root_vertices,
+                             stats);
+    }
+    else {
+        calc_stats(config, graph_builder.graph(), graph_builder.draw_vertices(),
+                   graph_builder.discard_vertices(), graph_builder.ippatsu_expiries(),
+                   graph_builder.call_options(), edge_csr, root_vertices, stats);
+    }
     const auto dp_end = std::chrono::steady_clock::now();
     if (profile) {
         profile->csr_build_us += std::chrono::duration_cast<std::chrono::microseconds>(
@@ -2561,11 +2781,24 @@ ExpectedScoreCalculator::calc(const Config &config, const TableConfig &table_con
     auto [turn_off, off_searched] = calc_core(overlay_off, table_config, round_state,
                                               table_state, player, wall, &off_profile);
 
+    const auto merge_start = std::chrono::steady_clock::now();
     merge_turn_yaku_overlay(base, turn_on, turn_off);
+    const auto merge_end = std::chrono::steady_clock::now();
     if (profile) {
         *profile += base_profile;
         *profile += on_profile;
         *profile += off_profile;
+        const auto copy_core_profile = [](const Profile &source) {
+            return Profile::CoreInvocation{source.graph_build_us, source.csr_build_us,
+                                           source.dp_us, source.draw_vertices,
+                                           source.discard_vertices, source.edges};
+        };
+        profile->core_invocations[0] = copy_core_profile(base_profile);
+        profile->core_invocations[1] = copy_core_profile(on_profile);
+        profile->core_invocations[2] = copy_core_profile(off_profile);
+        profile->merge_turn_yaku_overlay_us =
+            std::chrono::duration_cast<std::chrono::microseconds>(merge_end - merge_start)
+                .count();
     }
     return {std::move(base), base_searched + on_searched + off_searched};
 }
@@ -2591,6 +2824,11 @@ ExpectedScoreCalculator::calc_core(const Config &_config,
     }
     if (config.remaining_tiles < -1 || config.remaining_tiles > 70) {
         throw std::invalid_argument("remaining_tiles must be in [-1, 70].");
+    }
+    if (config.calc_exp_score_only &&
+        (config.calc_yaku_stats || config.calc_shapley_stats)) {
+        throw std::invalid_argument(
+            "calc_exp_score_only cannot be combined with yaku or Shapley statistics.");
     }
     for (int turn = 1; turn <= LastTurn; ++turn) {
         if (config.other_win_hazard[turn] < 0.0 ||

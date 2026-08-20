@@ -97,6 +97,9 @@
     "calc_stats": {
       "type": "boolean"
     },
+    "calc_exp_score_only": {
+      "type": "boolean"
+    },
     "ron_rate": {
       "type": "number",
       "minimum": 0,

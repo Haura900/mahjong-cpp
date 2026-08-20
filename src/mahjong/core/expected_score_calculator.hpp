@@ -61,6 +61,8 @@ class ExpectedScoreCalculator
         bool enable_turn_yaku = false;
         /* calculate value */
         bool calc_stats = true;
+        /* Calculate only exp_score. Other probability and contribution outputs are empty. */
+        bool calc_exp_score_only = false;
         /* Approximate share of completed wins scored as ron (0 restores legacy). */
         double ron_rate = 0.0;
         /* Live-wall tiles remaining after the current draw (-1 if unknown). */
@@ -128,6 +130,16 @@ class ExpectedScoreCalculator
 
     struct Profile
     {
+        struct CoreInvocation
+        {
+            long long graph_build_us = 0;
+            long long csr_build_us = 0;
+            long long dp_us = 0;
+            std::uint64_t draw_vertices = 0;
+            std::uint64_t discard_vertices = 0;
+            std::uint64_t edges = 0;
+        };
+
         long long graph_build_us = 0;
         long long csr_build_us = 0;
         long long dp_us = 0;
@@ -140,6 +152,9 @@ class ExpectedScoreCalculator
         std::uint64_t prune_high_shanten_shanten_down = 0;
         std::uint64_t prune_shanten_down_multiple_discards = 0;
         std::uint64_t prune_noop_tegawari = 0;
+        /* base, turn-yaku-on, turn-yaku-off; populated by the 3-pass overlay. */
+        std::array<CoreInvocation, 3> core_invocations{};
+        long long merge_turn_yaku_overlay_us = 0;
 
         Profile &operator+=(const Profile &other);
     };
@@ -222,27 +237,42 @@ class ExpectedScoreCalculator
         Vertex source;
         Vertex target;
         std::uint32_t next_out;
-        std::uint32_t next_in;
         int weight;
         float score;
+        float last_score;
+    };
+
+    // This data is only consumed by the optional yaku/Shapley statistics pass.
+    // Keeping it separate avoids writing 16 bytes per transition in the normal
+    // expected-score calculation.
+    struct EdgeContributionData
+    {
         std::uint32_t contribution_offset;
         std::uint16_t contribution_count;
-        float last_score;
         std::uint32_t last_contribution_offset;
         std::uint16_t last_contribution_count;
     };
+
+    static_assert(sizeof(EdgeData) == 24,
+                  "The normal graph-build edge must stay compact");
+    static_assert(sizeof(EdgeContributionData) == 16,
+                  "Contribution metadata is intentionally a separate optional array");
 
     struct Graph
     {
         static constexpr std::uint32_t NoEdge =
             std::numeric_limits<std::uint32_t>::max();
 
+        explicit Graph(const bool store_contributions = false)
+            : store_contributions(store_contributions)
+        {
+        }
+
         Vertex add_vertex()
         {
             const Vertex vertex = static_cast<Vertex>(vertices.size());
             vertices.emplace_back();
             first_out_edges.push_back(NoEdge);
-            first_in_edges.push_back(NoEdge);
             return vertex;
         }
 
@@ -262,19 +292,20 @@ class ExpectedScoreCalculator
                 return std::pair<std::uint32_t, std::uint16_t>{
                     offset, static_cast<std::uint16_t>(contributions.size() - offset)};
             };
-            const auto [contribution_offset, contribution_count] =
-                append_contributions(score_data);
-            const auto [last_contribution_offset, last_contribution_count] =
-                append_contributions(last_score_data);
-            edges.push_back(EdgeData{source, target, first_out_edges[source],
-                                     first_in_edges[target], weight,
+            if (store_contributions) {
+                const auto [contribution_offset, contribution_count] =
+                    append_contributions(score_data);
+                const auto [last_contribution_offset, last_contribution_count] =
+                    append_contributions(last_score_data);
+                edge_contributions.push_back(
+                    EdgeContributionData{contribution_offset, contribution_count,
+                                         last_contribution_offset,
+                                         last_contribution_count});
+            }
+            edges.push_back(EdgeData{source, target, first_out_edges[source], weight,
                                      static_cast<float>(score_data.score),
-                                     contribution_offset, contribution_count,
-                                     static_cast<float>(last_score_data.score),
-                                     last_contribution_offset,
-                                     last_contribution_count});
+                                     static_cast<float>(last_score_data.score)});
             first_out_edges[source] = edge;
-            first_in_edges[target] = edge;
         }
 
         bool has_edge(const Vertex source, const Vertex target) const
@@ -306,19 +337,20 @@ class ExpectedScoreCalculator
         std::vector<VertexData> vertices;
         std::vector<EdgeData> edges;
         std::vector<std::uint32_t> first_out_edges;
-        std::vector<std::uint32_t> first_in_edges;
         std::vector<ContributionData> contributions;
+        std::vector<EdgeContributionData> edge_contributions;
+        bool store_contributions;
 
         void release_adjacency()
         {
             std::vector<EdgeData>().swap(edges);
             std::vector<std::uint32_t>().swap(first_out_edges);
-            std::vector<std::uint32_t>().swap(first_in_edges);
         }
 
         void release_contributions()
         {
             std::vector<ContributionData>().swap(contributions);
+            std::vector<EdgeContributionData>().swap(edge_contributions);
         }
     };
 
@@ -399,6 +431,15 @@ class ExpectedScoreCalculator
                const std::vector<std::pair<Vertex, Vertex>> &ippatsu_expiries,
                const std::vector<CallOption> &call_options, const EdgeCsr &edge_csr,
                const std::vector<Vertex> &root_vertices, std::vector<Stat> &stats);
+    static void
+    calc_exp_score_stats(const Config &config, Graph &graph,
+                         const std::vector<Vertex> &draw_vertices,
+                         const std::vector<Vertex> &discard_vertices,
+                         const std::vector<std::pair<Vertex, Vertex>> &ippatsu_expiries,
+                         const std::vector<CallOption> &call_options,
+                         const EdgeCsr &edge_csr,
+                         const std::vector<Vertex> &root_vertices,
+                         std::vector<Stat> &stats);
     static std::tuple<std::vector<Stat>, int>
     calc_core(const Config &config, const TableConfig &table_config,
               const RoundState &round_state, const TableState &table_state,

@@ -1,6 +1,8 @@
 #define CATCH_CONFIG_MAIN
 #include <algorithm>
+#include <array>
 #include <cmath>
+#include <stdexcept>
 
 #include <catch2/catch.hpp>
 
@@ -137,6 +139,97 @@ TEST_CASE("four-shanten state is calculated")
         REQUIRE(stat.win_prob.size() == 5);
         REQUIRE(stat.exp_score.size() == 5);
         CHECK(std::isfinite(stat.exp_score[1]));
+    }
+}
+
+TEST_CASE("exp-score-only path preserves the full calculation on regression hands")
+{
+    Context context;
+    const std::array<const char *, 3> hands = {
+        "06m27p2357s134457z",
+        "026m67p23578s4457z",
+        "347789m589p3s5677z",
+    };
+
+    for (const char *hand : hands) {
+        ExpectedScoreCalculator::Config full_config;
+        full_config.t_max = 2;
+        full_config.extra = 0;
+        full_config.enable_calls = true;
+        full_config.enable_turn_yaku = true;
+
+        const auto [full_stats, full_searched] = ExpectedScoreCalculator::calc(
+            full_config, context.table_config, context.round, context.table,
+            player_for(hand));
+
+        auto fast_config = full_config;
+        fast_config.calc_exp_score_only = true;
+        const auto [fast_stats, fast_searched] = ExpectedScoreCalculator::calc(
+            fast_config, context.table_config, context.round, context.table,
+            player_for(hand));
+
+        REQUIRE(fast_searched == full_searched);
+        REQUIRE(fast_stats.size() == full_stats.size());
+        for (const auto &full : full_stats) {
+            const auto &fast = stat_for(fast_stats, full.tile);
+            CHECK(fast.tenpai_prob.empty());
+            CHECK(fast.win_prob.empty());
+            CHECK(fast.call_prob.empty());
+            CHECK(fast.call_win_prob.empty());
+            CHECK(fast.call_tile_stats.empty());
+            REQUIRE(fast.exp_score.size() == full.exp_score.size());
+            for (std::size_t turn = 0; turn < full.exp_score.size(); ++turn) {
+                CHECK(fast.exp_score[turn] == Approx(full.exp_score[turn]).margin(1e-5));
+            }
+        }
+    }
+}
+
+TEST_CASE("exp-score-only rejects contribution statistics")
+{
+    Context context;
+    ExpectedScoreCalculator::Config config;
+    config.t_max = 1;
+    config.calc_exp_score_only = true;
+    config.calc_yaku_stats = true;
+    CHECK_THROWS_AS(ExpectedScoreCalculator::calc(
+                        config, context.table_config, context.round, context.table,
+                        player_for("1122334455667m")),
+                    std::invalid_argument);
+}
+
+TEST_CASE("exp-score-only preserves expensive four-shanten searches [slow]")
+{
+    Context context;
+    const std::array<const char *, 3> hands = {
+        "147m258p369s11122z",
+        "133m188p469s12467z",
+        "2359m23358p89s125z",
+    };
+
+    for (const char *hand : hands) {
+        ExpectedScoreCalculator::Config full_config;
+        full_config.t_max = 1;
+        full_config.extra = 1;
+        full_config.auto_disable_deep_search = false;
+        full_config.enable_calls = true;
+
+        const auto [full_stats, full_searched] = ExpectedScoreCalculator::calc(
+            full_config, context.table_config, context.round, context.table,
+            player_for(hand));
+        auto fast_config = full_config;
+        fast_config.calc_exp_score_only = true;
+        const auto [fast_stats, fast_searched] = ExpectedScoreCalculator::calc(
+            fast_config, context.table_config, context.round, context.table,
+            player_for(hand));
+
+        REQUIRE(fast_searched == full_searched);
+        REQUIRE(fast_stats.size() == full_stats.size());
+        for (const auto &full : full_stats) {
+            const auto &fast = stat_for(fast_stats, full.tile);
+            REQUIRE(fast.exp_score.size() == full.exp_score.size());
+            CHECK(fast.exp_score[1] == Approx(full.exp_score[1]).margin(1e-5));
+        }
     }
 }
 
