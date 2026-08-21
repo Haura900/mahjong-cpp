@@ -3,12 +3,14 @@
     "id": "v0.9.13",
     "label": "v0.9.13 — current drill engine",
     "commit": "e1ad6449c840f4d8181e7a7b8e0af3cbb57e4649",
+    "version": "0.9.13",
     "path": "engines/v0.9.13/"
   },
   {
     "id": "candidate",
     "label": "Candidate — exact optimized",
     "commit": "BUILD_COMMIT",
+    "version": "0.9.13",
     "path": "engines/candidate/"
   }
 ]

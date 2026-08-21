@@ -1,0 +1,121 @@
+{
+  "base": "engine-v0.9.13",
+  "candidate": "0fd9ec1",
+  "tolerance": 1e-05,
+  "results": [
+    {
+      "recommendation_match": true,
+      "recommendations": [
+        26,
+        26
+      ],
+      "best_ev": [
+        776.0738,
+        776.0738
+      ],
+      "best_win_probability": [
+        0.0841,
+        0.0841
+      ],
+      "best_tenpai_probability": [
+        0.5208,
+        0.5208
+      ],
+      "ev_difference": 0.0,
+      "max_differences": {
+        "exp_score": 0.0,
+        "win_prob": 0.0,
+        "tenpai_prob": 0.0
+      },
+      "exact": true,
+      "states": [
+        3039890,
+        3039890
+      ],
+      "edges": [
+        null,
+        11077833
+      ],
+      "case": "deep-147",
+      "base_ms": 36839.17279999878,
+      "candidate_ms": 32780.94049999345,
+      "speedup": 1.1237985316500039
+    },
+    {
+      "recommendation_match": true,
+      "recommendations": [
+        21,
+        21
+      ],
+      "best_ev": [
+        152.214,
+        152.214
+      ],
+      "best_win_probability": [
+        0.0068,
+        0.0068
+      ],
+      "best_tenpai_probability": [
+        0.1103,
+        0.1103
+      ],
+      "ev_difference": 0.0,
+      "max_differences": {
+        "exp_score": 0.0,
+        "win_prob": 0.0,
+        "tenpai_prob": 0.0
+      },
+      "exact": true,
+      "states": [
+        1443133,
+        1443133
+      ],
+      "edges": [
+        null,
+        5363372
+      ],
+      "case": "deep-133",
+      "base_ms": 15552.769900001294,
+      "candidate_ms": 13360.247399999935,
+      "speedup": 1.1641079266242758
+    },
+    {
+      "recommendation_match": true,
+      "recommendations": [
+        27,
+        27
+      ],
+      "best_ev": [
+        216.7404,
+        216.7404
+      ],
+      "best_win_probability": [
+        0.0366,
+        0.0366
+      ],
+      "best_tenpai_probability": [
+        0.3081,
+        0.3081
+      ],
+      "ev_difference": 0.0,
+      "max_differences": {
+        "exp_score": 0.0,
+        "win_prob": 0.0,
+        "tenpai_prob": 0.0
+      },
+      "exact": true,
+      "states": [
+        3886491,
+        3886491
+      ],
+      "edges": [
+        null,
+        13766865
+      ],
+      "case": "deep-2359",
+      "base_ms": 36230.353099999775,
+      "candidate_ms": 31857.73500000505,
+      "speedup": 1.1372545191927181
+    }
+  ]
+}

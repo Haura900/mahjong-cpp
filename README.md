@@ -40,6 +40,33 @@ candidate by committing it and passing its revision to `--candidate`; add its
 WASM artifact through the Pages workflow and a new entry in
 `docs/engine-benchmark/engines.json`.
 
+### Reproducible native benchmark setup
+
+The comparison script builds both Git worktrees locally. It needs CMake 3.16+,
+a C++17 compiler, and Boost 1.81+ development libraries. On Windows, open a
+**Developer PowerShell for VS 2022** first, then install missing CMake/Ninja
+without changing system PATH if needed:
+
+```powershell
+python -m pip install --user cmake ninja
+$env:PATH = "$(python -c \"import sysconfig; print(sysconfig.get_path('scripts'))\");$env:PATH"
+cmake --version
+cl
+```
+
+The Python-installed command directory is intentionally not assumed to be on
+PATH. A missing `cmake` command does not establish that native compilation is
+unavailable; verify the compiler and invoke this setup first.
+
+When Boost comes from vcpkg, pass its toolchain to both revision builds:
+
+```powershell
+python scripts/compare_engine_versions.py --base engine-v0.9.13 --candidate HEAD `
+  --cmake-arg=-DCMAKE_TOOLCHAIN_FILE=$env:VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake `
+  --cmake-arg=-DVCPKG_TARGET_TRIPLET=x64-windows-static `
+  --cmake-arg=-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
+```
+
 ## About
 
 日本のリーチ麻雀のルールで、点数や期待値計算を行う C++ ライブラリです。

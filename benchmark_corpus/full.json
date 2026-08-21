@@ -1,8 +1,8 @@
 [
-  {"name": "tenpai", "hand": "123m1234789p3388s", "t_max": 4},
-  {"name": "one-shanten", "hand": "11237m4589p23345s", "t_max": 4},
-  {"name": "two-shanten", "hand": "347789m589p3s5677z", "t_max": 4},
-  {"name": "deep-147", "hand": "147m258p369s11122z", "t_max": 6, "extra": 1, "enable_calls": true, "enable_turn_yaku": true, "auto_disable_deep_search": false},
-  {"name": "deep-133", "hand": "133m188p469s12467z", "t_max": 6, "extra": 1, "enable_calls": true, "enable_turn_yaku": true, "auto_disable_deep_search": false},
-  {"name": "deep-2359", "hand": "2359m23358p89s125z", "t_max": 6, "extra": 1, "enable_calls": true, "enable_turn_yaku": true, "auto_disable_deep_search": false}
+  {"name": "tenpai", "hand": "123m1234789p3388s", "t_min": 4, "t_max": 18, "remaining_tiles": 56},
+  {"name": "one-shanten", "hand": "11237m4589p23345s", "t_min": 4, "t_max": 18, "remaining_tiles": 56},
+  {"name": "two-shanten", "hand": "347789m589p3s5677z", "t_min": 4, "t_max": 18, "remaining_tiles": 56},
+  {"name": "deep-147", "hand": "147m258p369s11122z", "t_min": 6, "t_max": 18, "remaining_tiles": 48, "extra": 1, "enable_calls": true, "enable_turn_yaku": true, "auto_disable_deep_search": false},
+  {"name": "deep-133", "hand": "133m188p469s12467z", "t_min": 6, "t_max": 18, "remaining_tiles": 48, "extra": 1, "enable_calls": true, "enable_turn_yaku": true, "auto_disable_deep_search": false},
+  {"name": "deep-2359", "hand": "2359m23358p89s125z", "t_min": 6, "t_max": 18, "remaining_tiles": 48, "extra": 1, "enable_calls": true, "enable_turn_yaku": true, "auto_disable_deep_search": false}
 ]

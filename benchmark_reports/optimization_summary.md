@@ -37,3 +37,34 @@ These are intentionally absent from the production request schema and `ExpectedS
 * Direct packed transition graph / graph-and-DP fusion: requires a separate correctness proof and full corpus benchmark before adoption.
 
 Use `python scripts/compare_engine_versions.py --base engine-v0.9.13 --candidate HEAD --corpus benchmark_corpus/smoke.json --report compare.json` for an independent revision comparison. Exact candidates must retain 100% recommendation match and maximum output differences within `1e-5`.
+
+## Native A/B measurement (2026-08-21)
+
+This is the formal direct comparison, not the historical pre-packed `47.292 s →
+13.241 s` measurement. Both servers were built in independent worktrees from
+`engine-v0.9.13` (`e1ad6449c840f4d8181e7a7b8e0af3cbb57e4649`) and candidate
+`0fd9ec1`, using the same Release configuration and request JSON.
+
+* OS: Windows 11 Home 10.0.26200; CPU: 12th Gen Intel(R) Core(TM) i5-12450H.
+* Compiler: Visual Studio 2022 Build Tools MSVC 19.44.35228; CMake:
+  3.31.6-msvc6; vcpkg Boost x64-windows-static; `/MT` runtime.
+* Tolerance: `1e-5`. The raw, reproducible result is
+  `native_ab_smoke_20260821.json`.
+
+| Case | baseline | candidate | speedup | recommendation | EV / win / tenpai difference | states | candidate edges |
+|---|---:|---:|---:|---|---|---:|---:|
+| `deep-147` | 36.839 s | 32.781 s | 1.12x | 26 / 26 | 0 / 0 / 0 | 3,039,890 / 3,039,890 | 11,077,833 |
+| `deep-133` | 15.553 s | 13.360 s | 1.16x | 21 / 21 | 0 / 0 / 0 | 1,443,133 / 1,443,133 | 5,363,372 |
+| `deep-2359` | 36.230 s | 31.858 s | 1.14x | 27 / 27 | 0 / 0 / 0 | 3,886,491 / 3,886,491 | 13,766,865 |
+
+All smoke cases are exact under the stated tolerance. The v0.9.13 server did
+not expose an `edges` profile field, so the comparison intentionally records it
+as unavailable rather than inventing a difference.
+
+The earlier claim that native execution was unavailable was an environment
+discovery error: `cmake`, Ninja, and a C++ compiler were absent from the initial
+PATH, but Python/pip were available and no repository instruction prohibited a
+local build. CMake/Ninja were installed into the Python user Scripts directory,
+Visual Studio Build Tools and vcpkg Boost were then used to build both native
+revisions. The README and comparison script now make that recovery path
+explicit.
