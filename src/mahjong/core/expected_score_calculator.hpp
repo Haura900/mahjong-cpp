@@ -45,6 +45,12 @@ class ExpectedScoreCalculator
         bool enable_tegawari = true;
         /* disable shanten-down and tegawari automatically at 4+ shanten */
         bool auto_disable_deep_search = true;
+        /* Experimental: retain path-dependent deep-event state for analysis. */
+        bool track_deep_events = false;
+        /* Experimental approximate pruning. Zero means unlimited. */
+        std::uint8_t max_deep_events_since_last_improvement = 0;
+        /* Apply the preceding budget only while the pre-action shanten is 4+. */
+        bool deep_event_limit_high_shanten_only = false;
         /* score closed tenpai continuations as riichi */
         bool enable_riichi = true;
         /* include one shanten-improving call; first-call ryanmen chi is excluded */
@@ -142,6 +148,12 @@ class ExpectedScoreCalculator
         std::uint64_t edges = 0;
         std::uint64_t necessary_tile_calculator_calls = 0;
         std::uint64_t unnecessary_tile_calculator_calls = 0;
+        /* Graph-build time spent in the two shanten/ukeire analyzers. */
+        long long necessary_tile_calculator_us = 0;
+        long long unnecessary_tile_calculator_us = 0;
+        std::uint64_t deep_event_prunes = 0;
+        /* draw-state counts, [shanten 0..4+] x [deep events 0..4+]. */
+        std::array<std::array<std::uint64_t, 5>, 5> deep_event_draw_states{};
         /* base, turn-yaku-on, turn-yaku-off; populated by the 3-pass overlay. */
         std::array<CoreInvocation, 3> core_invocations{};
         long long merge_turn_yaku_overlay_us = 0;
@@ -155,18 +167,20 @@ class ExpectedScoreCalculator
     struct CacheKey
     {
         CacheKey(const MergedCount &hand, std::uint8_t riichi_state,
-                 std::uint8_t state_tag = 0);
+                 std::uint8_t state_tag = 0, std::uint16_t deep_context = 0);
 
         CacheKey with_riichi_state(std::uint8_t riichi_state) const noexcept;
         void change_tile(int tile, int delta) noexcept;
 
         bool operator==(const CacheKey &other) const
         {
-            return lo == other.lo && hi == other.hi && melds == other.melds;
+            return lo == other.lo && hi == other.hi && melds == other.melds &&
+                   deep_context == other.deep_context;
         }
         std::uint64_t lo = 0;
         std::uint64_t hi = 0;
         std::uint64_t melds = 0;
+        std::uint16_t deep_context = 0;
     };
 
     struct CacheKeyHash
@@ -176,6 +190,8 @@ class ExpectedScoreCalculator
             std::uint64_t h = key.lo ^ (key.hi + 0x9e3779b97f4a7c15ULL + (key.lo << 6) +
                                         (key.lo >> 2));
             h ^= key.melds + 0x9e3779b97f4a7c15ULL + (h << 6) + (h >> 2);
+            h ^= static_cast<std::uint64_t>(key.deep_context) *
+                 0x9e3779b97f4a7c15ULL;
             h ^= h >> 30;
             h *= 0xbf58476d1ce4e5b9ULL;
             h ^= h >> 27;

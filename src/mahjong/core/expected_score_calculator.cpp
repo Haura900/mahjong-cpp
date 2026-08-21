@@ -30,6 +30,16 @@ ExpectedScoreCalculator::Profile::operator+=(const Profile &other)
     edges += other.edges;
     necessary_tile_calculator_calls += other.necessary_tile_calculator_calls;
     unnecessary_tile_calculator_calls += other.unnecessary_tile_calculator_calls;
+    necessary_tile_calculator_us += other.necessary_tile_calculator_us;
+    unnecessary_tile_calculator_us += other.unnecessary_tile_calculator_us;
+    deep_event_prunes += other.deep_event_prunes;
+    for (std::size_t shanten = 0; shanten < deep_event_draw_states.size(); ++shanten) {
+        for (std::size_t count = 0; count < deep_event_draw_states[shanten].size();
+             ++count) {
+            deep_event_draw_states[shanten][count] +=
+                other.deep_event_draw_states[shanten][count];
+        }
+    }
     for (std::size_t i = 0; i < core_invocations.size(); ++i) {
         core_invocations[i].graph_build_us += other.core_invocations[i].graph_build_us;
         core_invocations[i].csr_build_us += other.core_invocations[i].csr_build_us;
@@ -70,7 +80,9 @@ std::uint64_t meld_signature(const std::vector<Meld> &melds)
 
 ExpectedScoreCalculator::CacheKey::CacheKey(const MergedCount &hand,
                                             const std::uint8_t riichi_state,
-                                            const std::uint8_t state_tag)
+                                            const std::uint8_t state_tag,
+                                            const std::uint16_t context)
+    : deep_context(context)
 {
     for (int tile = 0; tile < 18; ++tile) {
         lo |= static_cast<std::uint64_t>(hand[tile]) << (tile * 3);
@@ -925,7 +937,10 @@ class ExpectedScoreCalculator::GraphBuilder
     std::vector<CallSpec> enumerate_call_options() const;
     void apply_call(const CallSpec &spec);
     void undo_call(const CallSpec &spec);
-    Vertex build_node(bool draw, std::uint8_t riichi_state);
+    Vertex build_node(bool draw, std::uint8_t riichi_state,
+                      std::uint8_t deep_events = 0,
+                      std::int8_t pre_draw_shanten = -1,
+                      std::int8_t drawn_tile = -1);
 
     Vertex win_terminal()
     {
@@ -1070,7 +1085,10 @@ ExpectedScoreCalculator::GraphBuilder::discard_node(const std::uint8_t riichi_st
 
 ExpectedScoreCalculator::Vertex
 ExpectedScoreCalculator::GraphBuilder::build_node(const bool draw,
-                                                  const std::uint8_t riichi_state)
+                                                  const std::uint8_t riichi_state,
+                                                  const std::uint8_t deep_events,
+                                                  const std::int8_t pre_draw_shanten,
+                                                  const std::int8_t drawn_tile)
 {
     enum class Stage : std::uint8_t
     {
@@ -1089,6 +1107,9 @@ ExpectedScoreCalculator::GraphBuilder::build_node(const bool draw,
     {
         bool draw;
         std::uint8_t riichi_state;
+        std::uint8_t deep_events = 0;
+        std::int8_t pre_draw_shanten = -1;
+        std::int8_t drawn_tile = -1;
         Stage stage = Stage::Init;
         Vertex vertex = NoVertex;
         int type = 0;
@@ -1106,7 +1127,7 @@ ExpectedScoreCalculator::GraphBuilder::build_node(const bool draw,
 
     std::vector<Frame> stack;
     stack.reserve(256);
-    stack.push_back(Frame{draw, riichi_state});
+    stack.push_back(Frame{draw, riichi_state, deep_events, pre_draw_shanten, drawn_tile});
     Vertex completed = NoVertex;
 
     while (!stack.empty()) {
@@ -1114,7 +1135,21 @@ ExpectedScoreCalculator::GraphBuilder::build_node(const bool draw,
 
         if (frame.stage == Stage::Init) {
             Cache &cache = frame.draw ? cache1_ : cache2_;
-            const CacheKey key = hand_key_.with_riichi_state(frame.riichi_state);
+            CacheKey key = hand_key_.with_riichi_state(frame.riichi_state);
+            const bool track_deep_events =
+                config_.track_deep_events ||
+                config_.max_deep_events_since_last_improvement != 0;
+            if (track_deep_events) {
+                key.deep_context = static_cast<std::uint16_t>(frame.deep_events & 7);
+                if (!frame.draw) {
+                    key.deep_context |= static_cast<std::uint16_t>(
+                                            (frame.pre_draw_shanten + 1) & 7)
+                                        << 3;
+                    key.deep_context |= static_cast<std::uint16_t>(
+                                            (frame.drawn_tile + 1) & 63)
+                                        << 6;
+                }
+            }
             if (const auto itr = cache.find(key); itr != cache.end()) {
                 completed = itr->second;
                 stack.pop_back();
@@ -1123,12 +1158,24 @@ ExpectedScoreCalculator::GraphBuilder::build_node(const bool draw,
 
             if (frame.draw) {
                 ++profile_.necessary_tile_calculator_calls;
+                const auto analysis_start = std::chrono::steady_clock::now();
                 const auto [type, shanten, wait] = NecessaryTileCalculator::calc(
                     player_.hand, player_.num_melds(), config_.shanten_type,
                     table_config_.game_mode);
+                profile_.necessary_tile_calculator_us +=
+                    std::chrono::duration_cast<std::chrono::microseconds>(
+                        std::chrono::steady_clock::now() - analysis_start).count();
                 frame.type = type;
                 frame.shanten = shanten;
                 frame.flags = add_red5_flags(wait);
+
+                if (track_deep_events) {
+                    const std::size_t shanten_bucket =
+                        static_cast<std::size_t>(std::min(4, std::max(0, frame.shanten)));
+                    const std::size_t event_bucket = static_cast<std::size_t>(
+                        std::min<int>(4, frame.deep_events));
+                    ++profile_.deep_event_draw_states[shanten_bucket][event_bucket];
+                }
 
                 const bool can_extend_search =
                     exchange_distance_ + frame.shanten < shanten_org_ + config_.extra;
@@ -1159,9 +1206,13 @@ ExpectedScoreCalculator::GraphBuilder::build_node(const bool draw,
             }
             else {
                 ++profile_.unnecessary_tile_calculator_calls;
+                const auto analysis_start = std::chrono::steady_clock::now();
                 const auto [type, shanten, disc] = UnnecessaryTileCalculator::calc(
                     player_.hand, player_.num_melds(), config_.shanten_type,
                     table_config_.game_mode);
+                profile_.unnecessary_tile_calculator_us +=
+                    std::chrono::duration_cast<std::chrono::microseconds>(
+                        std::chrono::steady_clock::now() - analysis_start).count();
                 frame.type = type;
                 frame.shanten = shanten;
                 frame.flags = add_red5_flags(disc);
@@ -1215,9 +1266,13 @@ ExpectedScoreCalculator::GraphBuilder::build_node(const bool draw,
 
             apply_call(spec);
             ++profile_.unnecessary_tile_calculator_calls;
+            const auto analysis_start = std::chrono::steady_clock::now();
             const int post_call_shanten = std::get<1>(UnnecessaryTileCalculator::calc(
                 player_.hand, player_.num_melds(), config_.shanten_type,
                 table_config_.game_mode));
+            profile_.unnecessary_tile_calculator_us +=
+                std::chrono::duration_cast<std::chrono::microseconds>(
+                    std::chrono::steady_clock::now() - analysis_start).count();
             if (post_call_shanten >= frame.shanten) {
                 undo_call(spec);
                 ++frame.call_index;
@@ -1227,7 +1282,7 @@ ExpectedScoreCalculator::GraphBuilder::build_node(const bool draw,
             frame.previous_dynamic_call_tile = dynamic_call_tile_;
             dynamic_call_tile_ = spec.called_tile;
             frame.stage = Stage::DrawCallResume;
-            stack.push_back(Frame{false, NoRiichi});
+            stack.push_back(Frame{false, NoRiichi, frame.deep_events});
             continue;
         }
 
@@ -1245,7 +1300,7 @@ ExpectedScoreCalculator::GraphBuilder::build_node(const bool draw,
         if (frame.stage == Stage::DrawIppatsu) {
             if (config_.enable_turn_yaku && frame.riichi_state == IppatsuEligible) {
                 frame.stage = Stage::DrawIppatsuResume;
-                stack.push_back(Frame{true, RiichiEstablished});
+                stack.push_back(Frame{true, RiichiEstablished, frame.deep_events});
             }
             else {
                 frame.stage = Stage::DrawNext;
@@ -1289,7 +1344,9 @@ ExpectedScoreCalculator::GraphBuilder::build_node(const bool draw,
             }
 
             frame.stage = Stage::DrawResume;
-            stack.push_back(Frame{false, frame.riichi_state});
+            stack.push_back(Frame{false, frame.riichi_state, frame.deep_events,
+                                  static_cast<std::int8_t>(frame.shanten),
+                                  static_cast<std::int8_t>(frame.tile)});
             continue;
         }
 
@@ -1341,8 +1398,48 @@ ExpectedScoreCalculator::GraphBuilder::build_node(const bool draw,
 
             discard_tile(frame.tile);
             frame.weight = wall_counts_[frame.tile];
+
+            std::uint8_t next_deep_events = frame.deep_events;
+            const bool track_deep_events =
+                config_.track_deep_events ||
+                config_.max_deep_events_since_last_improvement != 0;
+            if (track_deep_events && frame.pre_draw_shanten >= 0) {
+                ++profile_.necessary_tile_calculator_calls;
+                const auto analysis_start = std::chrono::steady_clock::now();
+                const int shanten_after = std::get<1>(NecessaryTileCalculator::calc(
+                    player_.hand, player_.num_melds(), config_.shanten_type,
+                    table_config_.game_mode));
+                profile_.necessary_tile_calculator_us +=
+                    std::chrono::duration_cast<std::chrono::microseconds>(
+                        std::chrono::steady_clock::now() - analysis_start).count();
+
+                const bool shanten_back = shanten_after > frame.shanten;
+                const bool tegawari = frame.shanten >= frame.pre_draw_shanten &&
+                                      frame.tile != frame.drawn_tile &&
+                                      shanten_after == frame.pre_draw_shanten;
+                const bool deep_event = shanten_back || tegawari;
+                if (shanten_after < frame.pre_draw_shanten) {
+                    next_deep_events = 0;
+                }
+                else if (deep_event) {
+                    next_deep_events = static_cast<std::uint8_t>(
+                        std::min<int>(7, next_deep_events + 1));
+                }
+
+                const bool high_shanten_scope =
+                    !config_.deep_event_limit_high_shanten_only || frame.shanten >= 4;
+                if (deep_event && high_shanten_scope &&
+                    config_.max_deep_events_since_last_improvement != 0 &&
+                    next_deep_events >
+                        config_.max_deep_events_since_last_improvement) {
+                    ++profile_.deep_event_prunes;
+                    draw_tile(frame.tile);
+                    frame.stage = Stage::DiscardNext;
+                    continue;
+                }
+            }
             frame.stage = Stage::DiscardResume;
-            stack.push_back(Frame{true, frame.next_riichi_state});
+            stack.push_back(Frame{true, frame.next_riichi_state, next_deep_events});
             continue;
         }
 

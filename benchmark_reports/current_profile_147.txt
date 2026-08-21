@@ -1,0 +1,15 @@
+[2026-08-21 09:15:49.187] [info] Table file loaded. (path: C:\Users\batam\Documents\Codex\2026-08-21\new-chat\mahjong-cpp\build-local\src\samples\suits_table.bin, size: 1943751)
+[2026-08-21 09:15:49.194] [info] Table file loaded. (path: C:\Users\batam\Documents\Codex\2026-08-21\new-chat\mahjong-cpp\build-local\src\samples\honors_table.bin, size: 77751)
+hand=147m258p369s11122z t_max=6 repeat=3 deep_search=1 extra=1
+full_ms=23289.783 fast_ms=20022.974 speedup=1.163x
+full_graph_ms=16025.758 fast_graph_ms=17725.872 full_dp_ms=6572.045 fast_dp_ms=1559.432
+full_states=3039890 fast_states=3039890 full_edges=11077833 fast_edges=11077833
+max_abs_exp_score_diff=0.000 full_best=0 fast_best=0 recommendation_match=1
+full_base graph_ms=14687.701 csr_ms=599.683 dp_ms=6519.810 draw_vertices=999668 discard_vertices=1887355 edges=10576585
+full_turn_on graph_ms=708.404 csr_ms=10.344 dp_ms=24.850 draw_vertices=44650 discard_vertices=33015 edges=254642
+full_turn_off graph_ms=629.653 csr_ms=11.556 dp_ms=27.384 draw_vertices=37160 discard_vertices=38041 edges=246606
+full_merge_ms=0.001
+fast_base graph_ms=16480.895 csr_ms=639.135 dp_ms=1530.280 draw_vertices=999668 discard_vertices=1887355 edges=10576585
+fast_turn_on graph_ms=680.801 csr_ms=9.120 dp_ms=14.147 draw_vertices=44650 discard_vertices=33015 edges=254642
+fast_turn_off graph_ms=564.175 csr_ms=11.471 dp_ms=15.005 draw_vertices=37160 discard_vertices=38041 edges=246606
+fast_merge_ms=0.001

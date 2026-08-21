@@ -1,0 +1,27 @@
+[2026-08-21 09:25:21.640] [info] Table file loaded. (path: C:\Users\batam\Documents\Codex\2026-08-21\new-chat\mahjong-cpp\build-local\src\samples\suits_table.bin, size: 1943751)
+[2026-08-21 09:25:21.647] [info] Table file loaded. (path: C:\Users\batam\Documents\Codex\2026-08-21\new-chat\mahjong-cpp\build-local\src\samples\honors_table.bin, size: 77751)
+hand=147m258p369s11122z t_max=6 repeat=1 deep_search=1 extra=1 deep_budget=1 high_shanten_only=0
+full_ms=84651.117 fast_ms=72683.099 speedup=1.165x
+full_graph_ms=60288.450 fast_graph_ms=65082.412 full_dp_ms=20612.652 fast_dp_ms=3738.289
+full_states=10445443 fast_states=10445443 full_edges=31739127 fast_edges=31739127
+max_abs_exp_score_diff=0.000 full_best=0 fast_best=0 recommendation_match=1
+full_necessary_calls=25097372 full_necessary_ms=534.345 full_unnecessary_calls=13023420 full_unnecessary_ms=274.000 fast_necessary_calls=25097372 fast_necessary_ms=595.883 fast_unnecessary_calls=13023420 fast_unnecessary_ms=306.938
+full_deep_event_prunes=1597203 fast_deep_event_prunes=1597203
+full_deep_states_shanten=0 138000 1344 0 0 0
+full_deep_states_shanten=1 544681 126198 0 0 0
+full_deep_states_shanten=2 347956 138902 0 0 0
+full_deep_states_shanten=3 44661 31586 0 0 0
+full_deep_states_shanten=4+ 333 1530 0 0 0
+fast_deep_states_shanten=0 138000 1344 0 0 0
+fast_deep_states_shanten=1 544681 126198 0 0 0
+fast_deep_states_shanten=2 347956 138902 0 0 0
+fast_deep_states_shanten=3 44661 31586 0 0 0
+fast_deep_states_shanten=4+ 333 1530 0 0 0
+full_base graph_ms=55950.805 csr_ms=3400.771 dp_ms=20420.639 draw_vertices=1252223 discard_vertices=8643015 edges=29403741
+full_turn_on graph_ms=2206.968 csr_ms=76.811 dp_ms=86.886 draw_vertices=65229 discard_vertices=209600 edges=1171711
+full_turn_off graph_ms=2130.677 csr_ms=64.521 dp_ms=105.127 draw_vertices=57739 discard_vertices=217636 edges=1163675
+full_merge_ms=0.023
+fast_base graph_ms=61000.944 csr_ms=3562.563 dp_ms=3625.783 draw_vertices=1252223 discard_vertices=8643015 edges=29403741
+fast_turn_on graph_ms=2208.751 csr_ms=71.388 dp_ms=56.084 draw_vertices=65229 discard_vertices=209600 edges=1171711
+fast_turn_off graph_ms=1872.717 csr_ms=61.908 dp_ms=56.422 draw_vertices=57739 discard_vertices=217636 edges=1163675
+fast_merge_ms=0.001

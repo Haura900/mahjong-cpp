@@ -23,7 +23,8 @@ struct Run
 };
 
 Run run(const std::string &hand, const int t_max, const int repeat,
-        const bool deep_search, const bool exp_score_only)
+        const bool deep_search, const bool exp_score_only, const int deep_budget = 0,
+        const bool high_shanten_only = false)
 {
     TableConfig table_config;
     table_config.rule_flags = RuleFlag::Default;
@@ -44,6 +45,10 @@ Run run(const std::string &hand, const int t_max, const int repeat,
     config.enable_calls = true;
     config.enable_turn_yaku = true;
     config.calc_exp_score_only = exp_score_only;
+    config.track_deep_events = deep_budget != 0;
+    config.max_deep_events_since_last_improvement =
+        static_cast<std::uint8_t>(deep_budget);
+    config.deep_event_limit_high_shanten_only = high_shanten_only;
 
     Run result;
     const auto start = std::chrono::steady_clock::now();
@@ -67,6 +72,8 @@ Run run(const std::string &hand, const int t_max, const int repeat,
     result.profile.edges /= repeat;
     result.profile.necessary_tile_calculator_calls /= repeat;
     result.profile.unnecessary_tile_calculator_calls /= repeat;
+    result.profile.necessary_tile_calculator_us /= repeat;
+    result.profile.unnecessary_tile_calculator_us /= repeat;
     for (auto &core : result.profile.core_invocations) {
         core.graph_build_us /= repeat;
         core.csr_build_us /= repeat;
@@ -92,22 +99,26 @@ const ExpectedScoreCalculator::Stat *find_stat(
 
 int main(int argc, char **argv)
 {
-    if (argc < 2 || argc > 5) {
+    if (argc < 2 || argc > 7) {
         std::cerr << "usage: sample_expected_score_fastpath_benchmark HAND [T_MAX] "
-                     "[REPEAT] [DEEP_SEARCH]\n";
+                     "[REPEAT] [DEEP_SEARCH] [DEEP_BUDGET] [HIGH_SHANTEN_ONLY]\n";
         return 2;
     }
     const std::string hand = argv[1];
     const int t_max = argc >= 3 ? std::atoi(argv[2]) : 4;
     const int repeat = argc >= 4 ? std::atoi(argv[3]) : 3;
     const bool deep_search = argc >= 5 && std::atoi(argv[4]) != 0;
+    const int deep_budget = argc >= 6 ? std::atoi(argv[5]) : 0;
+    const bool high_shanten_only = argc >= 7 && std::atoi(argv[6]) != 0;
     if (t_max < 1 || t_max > 18 || repeat < 1) {
         std::cerr << "T_MAX must be 1..18 and REPEAT must be positive\n";
         return 2;
     }
 
-    const Run full = run(hand, t_max, repeat, deep_search, false);
-    const Run fast = run(hand, t_max, repeat, deep_search, true);
+    const Run full = run(hand, t_max, repeat, deep_search, false, deep_budget,
+                         high_shanten_only);
+    const Run fast = run(hand, t_max, repeat, deep_search, true, deep_budget,
+                         high_shanten_only);
     double max_abs_diff = 0.0;
     bool recommendations_match = true;
     int full_best = Tile::Null;
@@ -141,6 +152,8 @@ int main(int argc, char **argv)
     std::cout << "hand=" << hand << " t_max=" << t_max << " repeat=" << repeat
               << " deep_search=" << deep_search
               << " extra=" << (deep_search ? 1 : 0)
+              << " deep_budget=" << deep_budget
+              << " high_shanten_only=" << high_shanten_only
               << "\nfull_ms=" << full.elapsed_ms << " fast_ms=" << fast.elapsed_ms
               << " speedup=" << full.elapsed_ms / fast.elapsed_ms << "x\n"
               << "full_graph_ms=" << full.profile.graph_build_us / 1000.0
@@ -153,6 +166,36 @@ int main(int argc, char **argv)
               << "max_abs_exp_score_diff=" << max_abs_diff
               << " full_best=" << full_best << " fast_best=" << fast_best
               << " recommendation_match=" << recommendations_match << "\n";
+    std::cout << "full_necessary_calls=" << full.profile.necessary_tile_calculator_calls
+              << " full_necessary_ms="
+              << full.profile.necessary_tile_calculator_us / 1000.0
+              << " full_unnecessary_calls="
+              << full.profile.unnecessary_tile_calculator_calls
+              << " full_unnecessary_ms="
+              << full.profile.unnecessary_tile_calculator_us / 1000.0
+              << " fast_necessary_calls=" << fast.profile.necessary_tile_calculator_calls
+              << " fast_necessary_ms="
+              << fast.profile.necessary_tile_calculator_us / 1000.0
+              << " fast_unnecessary_calls=" << fast.profile.unnecessary_tile_calculator_calls
+              << " fast_unnecessary_ms="
+              << fast.profile.unnecessary_tile_calculator_us / 1000.0 << "\n";
+    std::cout << "full_deep_event_prunes=" << full.profile.deep_event_prunes
+              << " fast_deep_event_prunes=" << fast.profile.deep_event_prunes << "\n";
+    const auto print_distribution = [](const char *name, const Run &result) {
+        for (std::size_t shanten = 0;
+             shanten < result.profile.deep_event_draw_states.size(); ++shanten) {
+            std::cout << name << "_deep_states_shanten="
+                      << (shanten == 4 ? "4+" : std::to_string(shanten));
+            for (const auto count : result.profile.deep_event_draw_states[shanten]) {
+                std::cout << ' ' << count;
+            }
+            std::cout << "\n";
+        }
+    };
+    if (deep_budget != 0) {
+        print_distribution("full", full);
+        print_distribution("fast", fast);
+    }
     const auto print_cores = [](const char *name, const Run &result) {
         static constexpr std::array<const char *, 3> labels = {
             "base", "turn_on", "turn_off"};
