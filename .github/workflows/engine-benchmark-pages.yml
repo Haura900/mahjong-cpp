@@ -20,13 +20,14 @@ jobs:
           # The Git superproject keeps headers in submodules; it is not an include
           # root.  The official archive has the required boost/... tree directly.
           curl --fail --location --retry 3 https://archives.boost.io/release/1.87.0/source/boost_1_87_0.tar.gz | tar -xz -C /tmp
-          build_engine() { local ref="$1" out="$2"; git worktree add --detach "/tmp/$out" "$ref"; emcmake cmake -S "/tmp/$out" -B "/tmp/$out/build" -DCMAKE_BUILD_TYPE=Release -DBUILD_WASM=ON -DBUILD_SERVER=OFF -DBUILD_SAMPLES=OFF -DBUILD_TOOLS=OFF -DBOOST_INCLUDE_DIR="$BOOST_ROOT"; cmake --build "/tmp/$out/build" --target mahjong-wasm --parallel; mkdir -p "_site/engines/$out"; cp "/tmp/$out/build/mahjong."{js,wasm,data} "/tmp/$out/build/worker.js" "_site/engines/$out/"; }
-          mkdir -p _site
-          cp -R docs/engine-benchmark/. _site/
+          build_engine() { local ref="$1" out="$2"; git worktree add --detach "/tmp/$out" "$ref"; emcmake cmake -S "/tmp/$out" -B "/tmp/$out/build" -DCMAKE_BUILD_TYPE=Release -DBUILD_WASM=ON -DBUILD_SERVER=OFF -DBUILD_SAMPLES=OFF -DBUILD_TOOLS=OFF -DBOOST_INCLUDE_DIR="$BOOST_ROOT"; cmake --build "/tmp/$out/build" --target mahjong-wasm --parallel; mkdir -p "_site/engine-benchmark/engines/$out"; cp "/tmp/$out/build/mahjong."{js,wasm,data} "/tmp/$out/build/worker.js" "_site/engine-benchmark/engines/$out/"; }
+          # Keep the published route stable and match the documented Pages URL.
+          mkdir -p _site/engine-benchmark
+          cp -R docs/engine-benchmark/. _site/engine-benchmark/
           export BOOST_ROOT=/tmp/boost_1_87_0
           build_engine engine-v0.9.13 v0.9.13
           build_engine "$GITHUB_SHA" candidate
-          sed -i "s/BUILD_COMMIT/$GITHUB_SHA/" _site/engines.json
+          sed -i "s/BUILD_COMMIT/$GITHUB_SHA/" _site/engine-benchmark/engines.json
       - uses: actions/upload-pages-artifact@v3
         with: {path: _site}
   deploy:
