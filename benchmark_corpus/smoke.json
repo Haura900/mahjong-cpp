@@ -1,0 +1,5 @@
+[
+  {"name": "deep-147", "hand": "147m258p369s11122z", "t_max": 6, "extra": 1, "enable_calls": true, "enable_turn_yaku": true, "auto_disable_deep_search": false},
+  {"name": "deep-133", "hand": "133m188p469s12467z", "t_max": 6, "extra": 1, "enable_calls": true, "enable_turn_yaku": true, "auto_disable_deep_search": false},
+  {"name": "deep-2359", "hand": "2359m23358p89s125z", "t_max": 6, "extra": 1, "enable_calls": true, "enable_turn_yaku": true, "auto_disable_deep_search": false}
+]

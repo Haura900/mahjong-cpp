@@ -14,6 +14,32 @@ and `api_version`. Consumers should pin a release tag and SHA-256 checksum in
 an `engine-lock.json` file instead of downloading the latest release at build
 time.
 
+## Engine A/B benchmark
+
+The GitHub Pages workflow publishes an engine comparison page at
+`https://haura900.github.io/mahjong-cpp/engine-benchmark/` when Pages is enabled
+for this repository. It loads `engine-v0.9.13` (the drill engine baseline) and
+the candidate as separate Web Workers, so their WASM module globals cannot
+collide. Enter a hand in mpsz notation, configure turn/winds/dora/melds, choose
+Engine A and B, then select **比較実行**. The page reports separate first-load
+warm-up and warm calculation times; speedups are comparable only on the same
+browser and machine.
+
+Native revision comparisons do not embed an old algorithm in production code:
+
+```bash
+python scripts/compare_engine_versions.py --base engine-v0.9.13 --candidate HEAD \
+  --corpus benchmark_corpus/smoke.json --report compare.json
+```
+
+The script creates temporary Git worktrees, Release-builds each revision, sends
+the same raw requests to both servers, and checks recommendation, EV, win,
+tenpai, states, edges, timeout/crash status, and runtime. `smoke.json` contains
+the three documented deep cases; `full.json` adds ordinary hands. Add a new
+candidate by committing it and passing its revision to `--candidate`; add its
+WASM artifact through the Pages workflow and a new entry in
+`docs/engine-benchmark/engines.json`.
+
 ## About
 
 日本のリーチ麻雀のルールで、点数や期待値計算を行う C++ ライブラリです。

@@ -1,0 +1,36 @@
+name: Build engine benchmark Pages artifact
+on:
+  workflow_dispatch:
+  push:
+    branches: [master, feature/engine-ab-cleanup]
+    paths: [CMakeLists.txt, wasm/**, src/**, data/config/**, docs/engine-benchmark/**, .github/workflows/engine-benchmark-pages.yml]
+permissions: {contents: read, pages: write, id-token: write}
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - uses: mymindstorm/setup-emsdk@v14
+        with: {version: 3.1.74}
+      - name: Build baseline and candidate WASM
+        shell: bash
+        run: |
+          set -euxo pipefail
+          git clone --depth 1 --recurse-submodules --shallow-submodules --branch boost-1.87.0 https://github.com/boostorg/boost.git /tmp/boost
+          build_engine() { local ref="$1" out="$2"; git worktree add --detach "/tmp/$out" "$ref"; emcmake cmake -S "/tmp/$out" -B "/tmp/$out/build" -DCMAKE_BUILD_TYPE=Release -DBUILD_WASM=ON -DBUILD_SERVER=OFF -DBUILD_SAMPLES=OFF -DBUILD_TOOLS=OFF -DBOOST_INCLUDE_DIR="$BOOST_ROOT"; cmake --build "/tmp/$out/build" --target mahjong-wasm --parallel; mkdir -p "_site/engines/$out"; cp "/tmp/$out/build/mahjong."{js,wasm,data} "/tmp/$out/build/worker.js" "_site/engines/$out/"; }
+          mkdir -p _site
+          cp -R docs/engine-benchmark/. _site/
+          export BOOST_ROOT=/tmp/boost
+          build_engine engine-v0.9.13 v0.9.13
+          build_engine "$GITHUB_SHA" candidate
+          sed -i "s/BUILD_COMMIT/$GITHUB_SHA/" _site/engines.json
+      - uses: actions/upload-pages-artifact@v3
+        with: {path: _site}
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: {name: github-pages, url: '${{ steps.deployment.outputs.page_url }}'}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
