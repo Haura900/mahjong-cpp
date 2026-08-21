@@ -1115,7 +1115,9 @@ ExpectedScoreCalculator::GraphBuilder::build_node(const bool draw,
         if (frame.stage == Stage::Init) {
             Cache &cache = frame.draw ? cache1_ : cache2_;
             const CacheKey key = hand_key_.with_riichi_state(frame.riichi_state);
-            if (const auto itr = cache.find(key); itr != cache.end()) {
+            const Vertex new_vertex = static_cast<Vertex>(graph_.num_vertices());
+            const auto [itr, inserted] = cache.try_emplace(key, new_vertex);
+            if (!inserted) {
                 completed = itr->second;
                 stack.pop_back();
                 continue;
@@ -1141,12 +1143,12 @@ ExpectedScoreCalculator::GraphBuilder::build_node(const bool draw,
                     allow_tegawari ? wall_mask_ : wall_mask_ & frame.flags;
 
                 frame.vertex = graph_.add_vertex();
+                assert(frame.vertex == new_vertex);
                 graph_[frame.vertex].is_tenpai = frame.shanten == 0;
                 graph_[frame.vertex].has_open_meld = !player_.is_closed();
                 graph_[frame.vertex].dynamic_called = after_dynamic_call;
                 graph_[frame.vertex].dynamic_call_tile =
                     static_cast<std::int8_t>(dynamic_call_tile_);
-                cache[key] = frame.vertex;
                 draw_vertices_.push_back(frame.vertex);
 
                 if (frame.riichi_state == NoRiichi) {
@@ -1177,12 +1179,12 @@ ExpectedScoreCalculator::GraphBuilder::build_node(const bool draw,
                     allow_shanten_down ? hand_mask_ : hand_mask_ & frame.flags;
 
                 frame.vertex = graph_.add_vertex();
+                assert(frame.vertex == new_vertex);
                 graph_[frame.vertex].is_tenpai = frame.shanten == 0;
                 graph_[frame.vertex].has_open_meld = !player_.is_closed();
                 graph_[frame.vertex].dynamic_called = after_dynamic_call;
                 graph_[frame.vertex].dynamic_call_tile =
                     static_cast<std::int8_t>(dynamic_call_tile_);
-                cache[key] = frame.vertex;
                 discard_vertices_.push_back(frame.vertex);
                 frame.stage = Stage::DiscardNext;
             }
