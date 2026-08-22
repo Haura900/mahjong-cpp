@@ -11,7 +11,9 @@ export const DRILL_STANDARD_PRESET = Object.freeze({
     0.0644, 0.0823, 0.0975, 0.1108, 0.1212, 0.1276, 0.1312, 0.1323,
     0.1309, 0.1170, 0.1170],
   calc_yaku_stats: true, calc_shapley_stats: true,
-  yaku_filter: 0xffffffffffffffff, state_tag: 0,
+  // Omitted uses Config::yaku_filter's full NormalMask|YakumanMask|NukiDora.
+  // JavaScript Number cannot faithfully represent that 57-bit mask.
+  yaku_filter: '', state_tag: 0,
 });
 
 export const OPTION_METADATA = Object.freeze([
@@ -34,7 +36,7 @@ export const OPTION_METADATA = Object.freeze([
   {key:'remaining_tiles', category:'experimental / model adjustment', label:'残り山牌', type:'number', min:0, max:70, auto:true, description:'現在ツモ後のライブ山残り枚数。空欄なら現在巡目から自動計算します。'},
   {key:'enable_other_win_stop', category:'experimental / model adjustment', label:'他家和了で打切り', type:'boolean', description:'将来巡目で他家が和了した経路を停止します。通常は何切るドリル設定を使用します。'},
   {key:'other_win_hazard', category:'experimental / model adjustment', label:'他家和了ハザード', type:'json', description:'巡目1〜18の確率配列(JSON)。通常は変更不要です。'},
-  {key:'yaku_filter', category:'experimental / model adjustment', label:'役フィルタ', type:'number', min:0, description:'役別統計に含める役・ボーナスのbit maskです。通常は変更不要です。'},
+  {key:'yaku_filter', category:'experimental / model adjustment', label:'役フィルタ', type:'text', description:'役別統計に含める役・ボーナスのbit maskです。空欄はengine標準の全役です。通常は変更不要です。'},
   {key:'state_tag', category:'experimental / model adjustment', label:'状態タグ', type:'number', min:0, max:255, description:'将来の探索ポリシー用予約値です。通常は0です。'},
 ]);
 
