@@ -1,0 +1,19 @@
+{
+  "commit": "WORKTREE",
+  "configuration": {
+    "compiler": "MSVC 19.44.35228",
+    "build_type": "Release",
+    "horizon": "t_min=6, t_max=8",
+    "full_stats": "two-shanten only; high-shanten raw runs omit yaku/Shapley"
+  },
+  "raw_results": [
+    "adaptive_deep_search_two_shanten_full.json",
+    "adaptive_deep_search_three_shanten.json",
+    "adaptive_deep_search_four_shanten.json"
+  ],
+  "five_plus_shanten": {
+    "status": "not completed",
+    "reason": "the Full reference exceeded 1 GiB working set; the native process was stopped before host pressure"
+  },
+  "conclusion": "D preserves the checked two-shanten full-search result but is not a better Current Standard frontier in the measured three- and four-shanten cases."
+}
