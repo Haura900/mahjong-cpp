@@ -27,7 +27,7 @@ jobs:
           export BOOST_ROOT=/tmp/boost_1_87_0
           build_engine engine-v0.9.13 v0.9.13
           build_engine "$GITHUB_SHA" candidate
-          sed -i "s/BUILD_COMMIT/$GITHUB_SHA/" _site/engine-benchmark/engines.json
+          sed -i "s/BUILD_COMMIT/$GITHUB_SHA/g" _site/engine-benchmark/engines.json _site/engine-benchmark/index.html
       - uses: actions/upload-pages-artifact@v3
         with: {path: _site}
   deploy:
