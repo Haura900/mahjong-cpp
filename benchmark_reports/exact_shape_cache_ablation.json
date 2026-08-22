@@ -25,7 +25,10 @@
       "max_differences": {
         "exp_score": 0.0,
         "win_prob": 0.0,
-        "tenpai_prob": 0.0
+        "tenpai_prob": 0.0,
+        "call_prob": 0.0,
+        "yaku_occurrence_prob": 0.0,
+        "yaku_shapley_score": 0.0
       },
       "exact": true,
       "states": [
@@ -38,9 +41,9 @@
       ],
       "profiles": {
         "base": {
-          "graph_build_us": 23926,
-          "csr_build_us": 543,
-          "dp_us": 1102,
+          "graph_build_us": 20589,
+          "csr_build_us": 483,
+          "dp_us": 930,
           "draw_vertices": 2429,
           "discard_vertices": 4106,
           "edges": 16824,
@@ -48,25 +51,25 @@
           "unnecessary_tile_calculator_calls": 4109,
           "core_invocations": [
             {
-              "graph_build_us": 6978,
-              "csr_build_us": 190,
-              "dp_us": 378,
+              "graph_build_us": 5699,
+              "csr_build_us": 155,
+              "dp_us": 305,
               "draw_vertices": 757,
               "discard_vertices": 1391,
               "edges": 5525
             },
             {
-              "graph_build_us": 11559,
-              "csr_build_us": 183,
-              "dp_us": 397,
+              "graph_build_us": 9956,
+              "csr_build_us": 158,
+              "dp_us": 335,
               "draw_vertices": 915,
               "discard_vertices": 1324,
               "edges": 5774
             },
             {
-              "graph_build_us": 5389,
+              "graph_build_us": 4934,
               "csr_build_us": 170,
-              "dp_us": 327,
+              "dp_us": 290,
               "draw_vertices": 757,
               "discard_vertices": 1391,
               "edges": 5525
@@ -75,9 +78,9 @@
           "merge_turn_yaku_overlay_us": 1
         },
         "candidate": {
-          "graph_build_us": 19693,
-          "csr_build_us": 665,
-          "dp_us": 1182,
+          "graph_build_us": 19023,
+          "csr_build_us": 552,
+          "dp_us": 961,
           "draw_vertices": 2429,
           "discard_vertices": 4106,
           "edges": 16824,
@@ -85,25 +88,25 @@
           "unnecessary_tile_calculator_calls": 1394,
           "core_invocations": [
             {
-              "graph_build_us": 7130,
-              "csr_build_us": 336,
-              "dp_us": 423,
+              "graph_build_us": 6797,
+              "csr_build_us": 219,
+              "dp_us": 344,
               "draw_vertices": 757,
               "discard_vertices": 1391,
               "edges": 5525
             },
             {
-              "graph_build_us": 9279,
-              "csr_build_us": 179,
-              "dp_us": 417,
+              "graph_build_us": 8668,
+              "csr_build_us": 171,
+              "dp_us": 326,
               "draw_vertices": 915,
               "discard_vertices": 1324,
               "edges": 5774
             },
             {
-              "graph_build_us": 3284,
-              "csr_build_us": 150,
-              "dp_us": 342,
+              "graph_build_us": 3558,
+              "csr_build_us": 162,
+              "dp_us": 291,
               "draw_vertices": 757,
               "discard_vertices": 1391,
               "edges": 5525
@@ -113,9 +116,9 @@
         }
       },
       "case": "two-shanten-turn-yaku",
-      "base_ms": 69.44690000091214,
-      "candidate_ms": 46.87669999839272,
-      "speedup": 1.4814801383905711
+      "base_ms": 55.68729998776689,
+      "candidate_ms": 33.206299995072186,
+      "speedup": 1.677010085316066
     }
   ]
 }

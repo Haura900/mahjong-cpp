@@ -72,8 +72,20 @@ def best(response):
 
 def compare(base, candidate, tolerance=TOLERANCE):
     a,b=best(base),best(candidate); turn=base["config"]["t_min"]
-    fields=("exp_score","win_prob","tenpai_prob")
+    fields=("exp_score","win_prob","tenpai_prob","call_prob")
     deltas={field:max(abs(x-y) for sa,sb in zip(base["stats"],candidate["stats"]) for x,y in zip(sa[field],sb[field])) for field in fields}
+    def yaku_delta(field):
+        values=[]
+        for sa,sb in zip(base["stats"],candidate["stats"]):
+            by_yaku={row["yaku"]:row for row in sb.get("yaku_stats",[])}
+            for row in sa.get("yaku_stats",[]):
+                other=by_yaku.get(row["yaku"])
+                if other is None: return float("inf")
+                values.extend(abs(x-y) for x,y in zip(row.get(field,[]),other.get(field,[])))
+            if len(sa.get("yaku_stats",[])) != len(sb.get("yaku_stats",[])): return float("inf")
+        return max(values,default=0.0)
+    deltas["yaku_occurrence_prob"]=yaku_delta("occurrence_prob")
+    deltas["yaku_shapley_score"]=yaku_delta("shapley_score")
     profile_keys = ("graph_build_us", "csr_build_us", "dp_us", "draw_vertices",
                     "discard_vertices", "edges", "necessary_tile_calculator_calls",
                     "unnecessary_tile_calculator_calls", "core_invocations",
