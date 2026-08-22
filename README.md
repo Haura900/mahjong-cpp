@@ -67,6 +67,24 @@ python scripts/compare_engine_versions.py --base engine-v0.9.13 --candidate HEAD
   --cmake-arg=-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
 ```
 
+### Engine A/B standard preset
+
+The Pages GUI at `/engine-benchmark/` starts in **Standard** mode. Its single
+source of truth is `docs/engine-benchmark/options.js` and it matches
+`nanikiru-drill-generator/docs/app.js:buildSimulatorEnginePayload`, the normal
+drill WASM request path: `t_min` is the entered turn, `t_max=18`, `extra=1`,
+red/ura dora, shanten-down, tegawari, riichi, calls, turn-yaku, and other-win
+stopping are enabled; `ron_rate=0.7`; remaining tiles are `(18-turn)*4`; and
+the drill's 18-value other-win hazard curve is used. It is a full calculation:
+`calc_stats`, `calc_yaku_stats`, and `calc_shapley_stats` are true.
+
+`calc_exp_score_only=false` in Standard. It is an Advanced candidate-only
+mode: EV and recommendation remain exact, but win/tenpai/call/yaku/Shapley
+statistics are intentionally omitted. The GUI will not run an A/B comparison
+when one selected engine does not support that option. The **何切るドリル標準設定に戻す**
+button restores every calculator option from the same preset; the UI also
+shows the current deviation count and the exact requests sent to both engines.
+
 ## About
 
 日本のリーチ麻雀のルールで、点数や期待値計算を行う C++ ライブラリです。
