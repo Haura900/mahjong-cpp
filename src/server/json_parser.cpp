@@ -91,10 +91,6 @@ Request make_request(const rapidjson::Value &doc)
     if (doc.HasMember("auto_disable_deep_search")) {
         req.config.auto_disable_deep_search = doc["auto_disable_deep_search"].GetBool();
     }
-    if (doc.HasMember("adaptive_deep_search_mode")) {
-        req.config.adaptive_deep_search_mode =
-            static_cast<std::uint8_t>(doc["adaptive_deep_search_mode"].GetUint());
-    }
     if (doc.HasMember("enable_riichi")) {
         req.config.enable_riichi = doc["enable_riichi"].GetBool();
     }
@@ -602,16 +598,6 @@ void build_success_response(const Request &req, const CalculationResult &result,
                       result.profile.necessary_tile_calculator_calls, allocator);
     profile.AddMember("unnecessary_tile_calculator_calls",
                       result.profile.unnecessary_tile_calculator_calls, allocator);
-    profile.AddMember("adaptive_shanten_down_pruned",
-                      result.profile.adaptive_shanten_down_pruned, allocator);
-    profile.AddMember("adaptive_tegawari_candidates",
-                      result.profile.adaptive_tegawari_candidates, allocator);
-    profile.AddMember("adaptive_tegawari_accepted",
-                      result.profile.adaptive_tegawari_accepted, allocator);
-    profile.AddMember("adaptive_tegawari_rejected",
-                      result.profile.adaptive_tegawari_rejected, allocator);
-    profile.AddMember("adaptive_full_search_reentries",
-                      result.profile.adaptive_full_search_reentries, allocator);
     rapidjson::Value core_invocations(rapidjson::kArrayType);
     for (const auto &core : result.profile.core_invocations) {
         rapidjson::Value entry(rapidjson::kObjectType);
@@ -639,10 +625,6 @@ void build_success_response(const Request &req, const CalculationResult &result,
     config_val.AddMember("enable_tegawari", result.config.enable_tegawari, allocator);
     config_val.AddMember("auto_disable_deep_search",
                          result.config.auto_disable_deep_search, allocator);
-    if (result.config.adaptive_deep_search_mode != 0) {
-        config_val.AddMember("adaptive_deep_search_mode",
-                             result.config.adaptive_deep_search_mode, allocator);
-    }
     config_val.AddMember("enable_riichi", result.config.enable_riichi, allocator);
     if (result.config.enable_calls) {
         config_val.AddMember("enable_calls", true, allocator);

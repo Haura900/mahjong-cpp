@@ -30,11 +30,6 @@ ExpectedScoreCalculator::Profile::operator+=(const Profile &other)
     edges += other.edges;
     necessary_tile_calculator_calls += other.necessary_tile_calculator_calls;
     unnecessary_tile_calculator_calls += other.unnecessary_tile_calculator_calls;
-    adaptive_shanten_down_pruned += other.adaptive_shanten_down_pruned;
-    adaptive_tegawari_candidates += other.adaptive_tegawari_candidates;
-    adaptive_tegawari_accepted += other.adaptive_tegawari_accepted;
-    adaptive_tegawari_rejected += other.adaptive_tegawari_rejected;
-    adaptive_full_search_reentries += other.adaptive_full_search_reentries;
     for (std::size_t i = 0; i < core_invocations.size(); ++i) {
         core_invocations[i].graph_build_us += other.core_invocations[i].graph_build_us;
         core_invocations[i].csr_build_us += other.core_invocations[i].csr_build_us;
@@ -891,68 +886,6 @@ class ExpectedScoreCalculator::GraphBuilder
         discard(player_, hand_counts_, wall_counts_, tile);
     }
 
-    int weighted_ukeire(const std::uint64_t tiles) const noexcept
-    {
-        int count = 0;
-        std::uint64_t active = tiles;
-        while (active) {
-            const int tile = first_tile(active);
-            active &= active - 1;
-            // `tiles` is a separated 37-tile mask.  add_red5_flags() adds a
-            // red-five bit in addition to the normal-five bit, so this sums
-            // each physical tile in the wall exactly once.
-            count += wall_counts_[tile];
-        }
-        return count;
-    }
-
-    std::uint64_t meaningful_tegawari_candidates(const int current_shanten,
-                                                  const std::uint64_t effective_tiles)
-    {
-        const int current_ukeire = weighted_ukeire(effective_tiles);
-        std::uint64_t accepted = wall_mask_ & effective_tiles;
-        std::uint64_t candidates = wall_mask_ & ~effective_tiles;
-        while (candidates) {
-            const int draw_tile_id = first_tile(candidates);
-            candidates &= candidates - 1;
-            ++profile_.adaptive_tegawari_candidates;
-            bool improves_ukeire = false;
-            draw_tile(draw_tile_id);
-            ++profile_.unnecessary_tile_calculator_calls;
-            const auto [_, post_draw_shanten, discards] =
-                UnnecessaryTileCalculator::calc(player_.hand, player_.num_melds(),
-                                                config_.shanten_type,
-                                                table_config_.game_mode);
-            if (post_draw_shanten == current_shanten) {
-                std::uint64_t discard_candidates = add_red5_flags(discards) & hand_mask_;
-                while (discard_candidates && !improves_ukeire) {
-                    const int discard_tile_id = first_tile(discard_candidates);
-                    discard_candidates &= discard_candidates - 1;
-                    discard_tile(discard_tile_id);
-                    ++profile_.necessary_tile_calculator_calls;
-                    const auto [type, new_shanten, wait] = NecessaryTileCalculator::calc(
-                        player_.hand, player_.num_melds(), config_.shanten_type,
-                        table_config_.game_mode);
-                    (void)type;
-                    if (new_shanten == current_shanten &&
-                        weighted_ukeire(add_red5_flags(wait)) > current_ukeire) {
-                        improves_ukeire = true;
-                    }
-                    draw_tile(discard_tile_id);
-                }
-            }
-            discard_tile(draw_tile_id);
-            if (improves_ukeire) {
-                accepted |= std::uint64_t{1} << draw_tile_id;
-                ++profile_.adaptive_tegawari_accepted;
-            }
-            else {
-                ++profile_.adaptive_tegawari_rejected;
-            }
-        }
-        return accepted;
-    }
-
   private:
     const Config &config_;
     const TableConfig &table_config_;
@@ -1206,18 +1139,8 @@ ExpectedScoreCalculator::GraphBuilder::build_node(const bool draw,
                 const bool allow_tegawari =
                     config_.enable_tegawari && !after_dynamic_call &&
                     frame.riichi_state == NoRiichi && can_extend_search;
-                const bool adaptive_high_shanten =
-                    config_.adaptive_deep_search_mode != 0 && frame.shanten >= 3;
-                const bool restrict_tegawari = adaptive_high_shanten &&
-                    (config_.adaptive_deep_search_mode == 2 ||
-                     config_.adaptive_deep_search_mode == 3);
-                if (config_.adaptive_deep_search_mode != 0 && frame.shanten <= 2) {
-                    ++profile_.adaptive_full_search_reentries;
-                }
-                frame.candidates = !allow_tegawari ? wall_mask_ & frame.flags
-                    : restrict_tegawari ? meaningful_tegawari_candidates(frame.shanten,
-                                                                           frame.flags)
-                                        : wall_mask_;
+                frame.candidates =
+                    allow_tegawari ? wall_mask_ : wall_mask_ & frame.flags;
 
                 frame.vertex = graph_.add_vertex();
                 assert(frame.vertex == new_vertex);
@@ -1252,16 +1175,8 @@ ExpectedScoreCalculator::GraphBuilder::build_node(const bool draw,
                 const bool allow_shanten_down =
                     config_.enable_shanten_down && !after_dynamic_call &&
                     frame.riichi_state == NoRiichi && can_extend_search;
-                const bool restrict_shanten_down =
-                    config_.adaptive_deep_search_mode != 0 && frame.shanten >= 3 &&
-                    (config_.adaptive_deep_search_mode == 1 ||
-                     config_.adaptive_deep_search_mode == 3);
-                if (allow_shanten_down && restrict_shanten_down) {
-                    profile_.adaptive_shanten_down_pruned +=
-                        popcount(hand_mask_ & ~frame.flags);
-                }
-                frame.candidates = (allow_shanten_down && !restrict_shanten_down)
-                    ? hand_mask_ : hand_mask_ & frame.flags;
+                frame.candidates =
+                    allow_shanten_down ? hand_mask_ : hand_mask_ & frame.flags;
 
                 frame.vertex = graph_.add_vertex();
                 assert(frame.vertex == new_vertex);

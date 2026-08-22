@@ -85,24 +85,6 @@ when one selected engine does not support that option. The **何切るドリル�
 button restores every calculator option from the same preset; the UI also
 shows the current deviation count and the exact requests sent to both engines.
 
-### Adaptive deep-search experiment
-
-`adaptive_deep_search_mode` is a candidate-only Advanced option; Standard
-remains `0` (off). Values `1`, `2`, and `3` select the B, C, and proposed D
-policies documented in
-[`benchmark_reports/adaptive_deep_search_ablation.md`](benchmark_reports/adaptive_deep_search_ablation.md).
-Every nonzero policy uses full search at two shanten or less and takes priority
-over the initial-hand `auto_disable_deep_search` shortcut. Reproduce a native
-ablation with:
-
-```bash
-python scripts/benchmark_adaptive_deep_search.py \
-  --binary path/to/nanikiru --full-stats --case two-shanten
-```
-
-Run without `--case` for the smoke corpus; the full reference can require a
-large working set for five-plus-shanten hands.
-
 ## About
 
 日本のリーチ麻雀のルールで、点数や期待値計算を行う C++ ライブラリです。

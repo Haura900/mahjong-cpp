@@ -4,7 +4,7 @@ const yakuNames=['門前清自摸和','立直','一発','断么九','平和','�
 function tiles(text){const o=[],b={m:0,p:9,s:18,z:27};let d='';for(const c of text.replace(/\s/g,'')){if(/\d/.test(c))d+=c;else if(b[c]!==undefined){for(const x of d)o.push(b[c]+(x==='0'?4:+x-1));d=''}else throw Error(`不正な牌表記: ${c}`)}if(d)throw Error('牌種 m/p/s/z が不足しています');return o}
 function value(m){const e=$(`opt-${m.key}`);if(m.type==='boolean')return e.checked;if(m.type==='json')return JSON.parse(e.value);if(m.type==='text')return e.value;return m.auto&&e.value===''?Math.max(0,(18-+$('turn').value)*4):+e.value}
 function set(m,v){const e=$(`opt-${m.key}`);if(!e)return;e[m.type==='boolean'?'checked':'value']=m.type==='json'?JSON.stringify(v):v}
-function renderOptions(){const groups={};for(const m of OPTION_METADATA)if(!m.scene)(groups[m.category]??=[]).push(m);for(const [group,items]of Object.entries(groups)){const fs=document.createElement('fieldset');fs.innerHTML=`<legend>${group}</legend>`;for(const m of items){const l=document.createElement('label');l.className='option';const c=m.type==='boolean'?`<input id="opt-${m.key}" type="checkbox">`:m.type==='select'?`<select id="opt-${m.key}">${m.values.map(([v,label])=>`<option value="${v}">${label}</option>`).join('')}</select>`:m.type==='json'?`<textarea id="opt-${m.key}" rows="2"></textarea>`:m.type==='text'?`<input id="opt-${m.key}" type="text">`:`<input id="opt-${m.key}" type="number" ${m.min!==undefined?`min="${m.min}"`:''} ${m.max!==undefined?`max="${m.max}"`:''} ${m.step!==undefined?`step="${m.step}"`:''}>`;l.innerHTML=`<span><strong>${m.label}</strong> <code>${m.key}</code><small>${m.description}</small></span>${c}`;fs.append(l)}$('advanced-options').append(fs)}for(const m of OPTION_METADATA.filter(x=>!x.scene))$(`opt-${m.key}`).addEventListener('input',()=>{$('mode-advanced').checked=true;sync();diff()})}
+function renderOptions(){const groups={};for(const m of OPTION_METADATA)if(!m.scene)(groups[m.category]??=[]).push(m);for(const [group,items]of Object.entries(groups)){const fs=document.createElement('fieldset');fs.innerHTML=`<legend>${group}</legend>`;for(const m of items){const l=document.createElement('label');l.className='option';const c=m.type==='boolean'?`<input id="opt-${m.key}" type="checkbox">`:m.type==='json'?`<textarea id="opt-${m.key}" rows="2"></textarea>`:m.type==='text'?`<input id="opt-${m.key}" type="text">`:`<input id="opt-${m.key}" type="number" ${m.min!==undefined?`min="${m.min}"`:''} ${m.max!==undefined?`max="${m.max}"`:''} ${m.step!==undefined?`step="${m.step}"`:''}>`;l.innerHTML=`<span><strong>${m.label}</strong> <code>${m.key}</code><small>${m.description}</small></span>${c}`;fs.append(l)}$('advanced-options').append(fs)}for(const m of OPTION_METADATA.filter(x=>!x.scene))$(`opt-${m.key}`).addEventListener('input',()=>{$('mode-advanced').checked=true;sync();diff()})}
 function settings(){const o={};for(const m of OPTION_METADATA)if(!m.scene)o[m.key]=value(m);o.t_min=+$('turn').value;o.remaining_tiles=value(OPTION_METADATA.find(m=>m.key==='remaining_tiles'));return o}
 function selected(){return [$('engineA').value,$('engineB').value].map(id=>engines.find(e=>e.id===id))}
 function standard(){for(const m of OPTION_METADATA)if(!m.scene&&m.key in DRILL_STANDARD_PRESET)set(m,DRILL_STANDARD_PRESET[m.key]);$('mode-standard').checked=true;sync();diff()}
@@ -21,41 +21,3 @@ function show(a,b){$('result').innerHTML=summary(a,b)+details(a,b);$('request-js
 async function execute(kind){try{const[a,b]=selected(),s=settings(),target=kind==='a'?a:kind==='b'?b:null;if(s.calc_exp_score_only&&((target&&!target.capabilities.calc_exp_score_only)||(kind==='both'&&(!a.capabilities.calc_exp_score_only||!b.capabilities.calc_exp_score_only))))throw Error('EV-only はこのengine組合せで同条件に実行できません。');const r=kind==='a'?await run(a):kind==='b'?await run(b):null;if(r)show(r,r);else{const[ra,rb]=await Promise.all([run(a),run(b)]);show(ra,rb)}$('status').textContent='完了。計算時間は warm-up 後の WASM 実行時間です。'}catch(e){$('status').textContent=`エラー: ${e.message}`}}
 async function init(){renderOptions();engines=await fetch('engines.json').then(r=>r.json());for(const id of ['engineA','engineB'])$(id).innerHTML=engines.map(e=>`<option value="${e.id}">${e.label}</option>`).join('');$('engineB').value='candidate';standard();$('mode-standard').onchange=standard;$('mode-advanced').onchange=()=>{sync();diff()};$('reset-standard').onclick=standard;$('engineA').onchange=sync;$('engineB').onchange=sync;$('turn').oninput=diff;$('runA').onclick=()=>execute('a');$('runB').onclick=()=>execute('b');$('compare').onclick=()=>execute('both');$('show-request').onclick=()=>$('request-detail').open=true}
 init();
-
-// Keep the manifest authoritative: an experimental request must never be sent
-// to an engine revision that did not implement its schema field.
-const runWithoutAdaptiveCapabilityCheck = run;
-run = async function(engine) {
-  if (settings().adaptive_deep_search_mode > 0 &&
-      !engine.capabilities?.adaptive_deep_search_mode) {
-    throw Error('Adaptive deep search is not supported by the selected engine.');
-  }
-  const p = request(engine), w = worker(engine), loadStart = performance.now();
-  // Warm-up measures module readiness, not the selected experimental policy.
-  // Keep it bounded even when the visible request selects D on a deep hand.
-  const warm = {...p, t_min:1, t_max:1, remaining_tiles:68, extra:0,
-                adaptive_deep_search_mode:0, calc_exp_score_only:true};
-  for (const k of ['calc_stats','calc_yaku_stats','calc_shapley_stats']) delete warm[k];
-  $('status').textContent = `${engine.label} を warm-up / 実行中…`;
-  await w.run(warm);
-  const loadMs = performance.now() - loadStart, calculationStart = performance.now();
-  const out = await w.run(p);
-  return {engine,response:out.result,request:p,loadMs,calcMs:performance.now()-calculationStart};
-};
-
-function refreshAdaptiveCapability() {
-  const [a,b] = selected();
-  const mode = Number($('opt-adaptive_deep_search_mode').value);
-  const supported = [a,b].filter(e => e?.capabilities?.adaptive_deep_search_mode).length;
-  if (mode > 0) {
-    $('capability-note').textContent = supported === 2
-      ? 'Adaptive deep search: 3+ は限定探索、2以下は完全探索へ戻ります。auto_disable_deep_search より優先します。'
-      : 'Adaptive deep search は片方の engine のみ対応です。同条件の A/B 比較はできません。';
-  }
-  $('capA').textContent = `${a?.label}: EV-only ${a?.capabilities?.calc_exp_score_only?'対応':'非対応'} / Adaptive ${a?.capabilities?.adaptive_deep_search_mode?'対応':'非対応'}`;
-  $('capB').textContent = `${b?.label}: EV-only ${b?.capabilities?.calc_exp_score_only?'対応':'非対応'} / Adaptive ${b?.capabilities?.adaptive_deep_search_mode?'対応':'非対応'}`;
-}
-$('opt-adaptive_deep_search_mode').addEventListener('input', refreshAdaptiveCapability);
-$('engineA').addEventListener('change', refreshAdaptiveCapability);
-$('engineB').addEventListener('change', refreshAdaptiveCapability);
-refreshAdaptiveCapability();
