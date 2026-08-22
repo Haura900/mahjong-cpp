@@ -73,7 +73,10 @@ def best(response):
 def compare(base, candidate, tolerance=TOLERANCE):
     a,b=best(base),best(candidate); turn=base["config"]["t_min"]
     fields=("exp_score","win_prob","tenpai_prob","call_prob")
-    deltas={field:max(abs(x-y) for sa,sb in zip(base["stats"],candidate["stats"]) for x,y in zip(sa[field],sb[field])) for field in fields}
+    deltas={field:max(abs(x-y) for sa,sb in zip(base["stats"],candidate["stats"])
+                      for x,y in zip(sa.get(field,[]),sb.get(field,[]))
+                      ) if any(field in stat for stat in base["stats"]) else 0.0
+            for field in fields}
     def yaku_delta(field):
         values=[]
         for sa,sb in zip(base["stats"],candidate["stats"]):
