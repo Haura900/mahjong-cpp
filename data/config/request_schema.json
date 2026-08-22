@@ -57,6 +57,11 @@
     "auto_disable_deep_search": {
       "type": "boolean"
     },
+    "adaptive_deep_search_mode": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 3
+    },
     "enable_riichi": {
       "type": "boolean"
     },

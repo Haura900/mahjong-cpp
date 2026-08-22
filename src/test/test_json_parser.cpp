@@ -412,6 +412,7 @@ TEST_CASE("deserialize_request maps validated JSON to Request")
                        request.AddMember("enable_calls", true, allocator);
                        request.AddMember("enable_turn_yaku", true, allocator);
                        request.AddMember("auto_disable_deep_search", false, allocator);
+                       request.AddMember("adaptive_deep_search_mode", 3, allocator);
                        request.AddMember("ron_rate", 0.7, allocator);
                        request.AddMember("remaining_tiles", 22, allocator);
                        request.AddMember("enable_other_win_stop", true, allocator);
@@ -439,6 +440,7 @@ TEST_CASE("deserialize_request maps validated JSON to Request")
         CHECK(req.config.enable_calls);
         CHECK(req.config.enable_turn_yaku);
         CHECK_FALSE(req.config.auto_disable_deep_search);
+        CHECK(req.config.adaptive_deep_search_mode == 3);
         CHECK(req.calc_stats_explicit);
         CHECK(req.config.ron_rate == Approx(0.7));
         CHECK(req.config.remaining_tiles == 22);
@@ -767,7 +769,7 @@ TEST_CASE("build_success_response creates a schema-compliant success document")
     REQUIRE(doc["success"].GetBool());
     REQUIRE(std::string(doc["engine_version"].GetString()) == PROJECT_VERSION);
     REQUIRE(doc["api_version"].GetInt() == 1);
-    REQUIRE(doc["profile"].MemberCount() == 10);
+    REQUIRE(doc["profile"].MemberCount() == 15);
     REQUIRE(doc["profile"]["graph_build_us"].GetInt64() == 0);
 
     const rapidjson::Value &input = doc["input"];

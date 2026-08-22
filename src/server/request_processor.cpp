@@ -25,7 +25,10 @@ CalculationResult calculate_result(const Request &req)
     result.thirteen_orphans_shanten = std::get<1>(ShantenCalculator::calc(
         req.player.hand, req.player.num_melds(), ShantenFlag::ThirteenOrphans,
         req.table_config.game_mode));
-    if (result.config.auto_disable_deep_search && result.shanten >= 4) {
+    // Adaptive policies own high-shanten pruning and must be allowed to return
+    // to full search after the state improves to two shanten or less.
+    if (result.config.auto_disable_deep_search &&
+        result.config.adaptive_deep_search_mode == 0 && result.shanten >= 4) {
         result.config.enable_shanten_down = false;
         result.config.enable_tegawari = false;
     }

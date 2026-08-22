@@ -45,6 +45,11 @@ class ExpectedScoreCalculator
         bool enable_tegawari = true;
         /* disable shanten-down and tegawari automatically at 4+ shanten */
         bool auto_disable_deep_search = true;
+        /* Experimental high-shanten policy.  0 keeps the historical policy;
+         * 1 disables only shanten-down at 3+ shanten; 2 keeps only
+         * weighted-ukeire-improving tegawari at 3+; 3 combines both.  At two
+         * shanten or less every non-zero mode uses the normal full search. */
+        std::uint8_t adaptive_deep_search_mode = 0;
         /* score closed tenpai continuations as riichi */
         bool enable_riichi = true;
         /* include one shanten-improving call; first-call ryanmen chi is excluded */
@@ -142,6 +147,11 @@ class ExpectedScoreCalculator
         std::uint64_t edges = 0;
         std::uint64_t necessary_tile_calculator_calls = 0;
         std::uint64_t unnecessary_tile_calculator_calls = 0;
+        std::uint64_t adaptive_shanten_down_pruned = 0;
+        std::uint64_t adaptive_tegawari_candidates = 0;
+        std::uint64_t adaptive_tegawari_accepted = 0;
+        std::uint64_t adaptive_tegawari_rejected = 0;
+        std::uint64_t adaptive_full_search_reentries = 0;
         /* base, turn-yaku-on, turn-yaku-off; populated by the 3-pass overlay. */
         std::array<CoreInvocation, 3> core_invocations{};
         long long merge_turn_yaku_overlay_us = 0;
