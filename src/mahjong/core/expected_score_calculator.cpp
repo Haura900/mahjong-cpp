@@ -1413,6 +1413,9 @@ ExpectedScoreCalculator::build_edge_csr(const Graph &graph)
     }
 
     edge_csr.draw_edges.resize(edge_csr.draw_edge_offsets.back());
+    if (graph.store_contributions) {
+        edge_csr.draw_edge_contributions.resize(edge_csr.draw_edge_offsets.back());
+    }
     edge_csr.selection_edges.resize(edge_csr.selection_edge_offsets.back());
 
     std::vector<std::uint32_t> draw_positions = edge_csr.draw_edge_offsets;
@@ -1429,11 +1432,10 @@ ExpectedScoreCalculator::build_edge_csr(const Graph &graph)
                 DrawEdge{edge.target,
                          edge.weight,
                          edge.score,
-                         contribution.contribution_offset,
-                         contribution.contribution_count,
-                         edge.last_score,
-                         contribution.last_contribution_offset,
-                         contribution.last_contribution_count};
+                         edge.last_score};
+            if (graph.store_contributions) {
+                edge_csr.draw_edge_contributions[draw_positions[vi] - 1] = contribution;
+            }
         }
     }
     // The former incoming linked-list prepended each new edge.  Fill in reverse
@@ -2114,7 +2116,9 @@ void ExpectedScoreCalculator::calc_stats(
         vertex.exp_score = 0.0;
     }
 
-    const auto load_selected = [&](const DrawEdge &edge, const bool last_turn,
+    const auto load_selected = [&](const DrawEdge &edge,
+                                   const EdgeContributionData &contribution,
+                                   const bool last_turn,
                                    const bool dynamic_called,
                                    const double continuation_score) {
         for (std::size_t role = 0; role < role_count; ++role) {
@@ -2125,10 +2129,10 @@ void ExpectedScoreCalculator::calc_stats(
             return;
         }
         std::fill(selected.begin(), selected.end(), RoleValue{});
-        const std::uint32_t offset =
-            last_turn ? edge.last_contribution_offset : edge.contribution_offset;
-        const std::uint16_t count =
-            last_turn ? edge.last_contribution_count : edge.contribution_count;
+        const std::uint32_t offset = last_turn ? contribution.last_contribution_offset
+                                               : contribution.contribution_offset;
+        const std::uint16_t count = last_turn ? contribution.last_contribution_count
+                                              : contribution.contribution_count;
         for (std::uint32_t ci = offset; ci < offset + count; ++ci) {
             const ContributionData &entry = graph.contributions[ci];
             const int yaku_index = first_tile(entry.yaku);
@@ -2196,7 +2200,8 @@ void ExpectedScoreCalculator::calc_stats(
                     const double continuation_score = graph[edge.target].exp_score;
                     const double edge_score = last_turn ? edge.last_score : edge.score;
                     const double selected_score = std::max(edge_score, continuation_score);
-                    load_selected(edge, last_turn, state.dynamic_called,
+                    load_selected(edge, edge_csr.draw_edge_contributions[ei], last_turn,
+                                  state.dynamic_called,
                                   continuation_score);
                     for (std::size_t role = 0; role < role_count; ++role) {
                         const RoleValue &before = values[value_index(vertex, role)];
@@ -2276,7 +2281,8 @@ void ExpectedScoreCalculator::calc_stats(
                     if (edge_score <= 0.0) {
                         continue;
                     }
-                    load_selected(edge, last_turn, graph[vertex].dynamic_called,
+                    load_selected(edge, edge_csr.draw_edge_contributions[ei], last_turn,
+                                  graph[vertex].dynamic_called,
                                   graph[edge.target].exp_score);
                     immediate_win_weight += edge.weight;
                     for (std::size_t role = 0; role < role_count; ++role) {

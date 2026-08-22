@@ -351,12 +351,11 @@ class ExpectedScoreCalculator
         std::uint32_t target;
         int weight;
         float score;
-        std::uint32_t contribution_offset;
-        std::uint16_t contribution_count;
         float last_score;
-        std::uint32_t last_contribution_offset;
-        std::uint16_t last_contribution_count;
     };
+
+    static_assert(sizeof(DrawEdge) == 16,
+                  "DP hot edges must not carry optional contribution metadata");
 
     struct SelectionEdge
     {
@@ -375,6 +374,8 @@ class ExpectedScoreCalculator
     struct EdgeCsr
     {
         std::vector<DrawEdge> draw_edges;
+        // Parallel to draw_edges and allocated only for the optional yaku/Shapley pass.
+        std::vector<EdgeContributionData> draw_edge_contributions;
         std::vector<SelectionEdge> selection_edges;
         std::vector<std::uint32_t> draw_edge_offsets;
         std::vector<std::uint32_t> selection_edge_offsets;
