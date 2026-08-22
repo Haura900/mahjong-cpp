@@ -9,7 +9,7 @@ const module = await createMahjongModule({
   locateFile: (file) => path.join(moduleDirectory, file),
 });
 
-assert.equal(module.engineVersion(), "0.9.13");
+assert.equal(module.engineVersion(), "0.9.14");
 const invalidResponse = JSON.parse(module.analyzeJson("{}"));
 assert.equal(invalidResponse.success, false);
 assert.match(invalidResponse.err_msg, /schema|required|invalid/i);
