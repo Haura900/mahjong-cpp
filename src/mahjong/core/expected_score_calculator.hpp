@@ -346,6 +346,23 @@ class ExpectedScoreCalculator
 
     using Cache = boost::unordered_flat_map<CacheKey, Vertex, CacheKeyHash>;
 
+    struct ShapeCacheResult
+    {
+        int type = 0;
+        int shanten = 0;
+        std::uint64_t tiles = 0;
+    };
+
+    // The turn-yaku overlay invokes calc_core three times with identical hand
+    // shape semantics. Keep the expensive shape answers only for that one
+    // calculation; this never changes graph topology or DP reduction order.
+    struct ShapeCache
+    {
+        static constexpr std::size_t MaxEntriesPerKind = 65536;
+        boost::unordered_flat_map<CacheKey, ShapeCacheResult, CacheKeyHash> necessary;
+        boost::unordered_flat_map<CacheKey, ShapeCacheResult, CacheKeyHash> unnecessary;
+    };
+
     struct DrawEdge
     {
         std::uint32_t target;
@@ -434,7 +451,8 @@ class ExpectedScoreCalculator
     static std::tuple<std::vector<Stat>, int>
     calc_core(const Config &config, const TableConfig &table_config,
               const RoundState &round_state, const TableState &table_state,
-              const PlayerState &player, const MergedCount &wall, Profile *profile);
+              const PlayerState &player, const MergedCount &wall, Profile *profile,
+              ShapeCache *shape_cache = nullptr);
 };
 } // namespace mahjong
 

@@ -1,0 +1,121 @@
+{
+  "base": "engine-v0.9.13",
+  "candidate": "HEAD",
+  "tolerance": 1e-05,
+  "results": [
+    {
+      "recommendation_match": true,
+      "recommendations": [
+        6,
+        6
+      ],
+      "best_ev": [
+        0.0,
+        0.0
+      ],
+      "best_win_probability": [
+        0.0,
+        0.0
+      ],
+      "best_tenpai_probability": [
+        0.0,
+        0.0
+      ],
+      "ev_difference": 0.0,
+      "max_differences": {
+        "exp_score": 0.0,
+        "win_prob": 0.0,
+        "tenpai_prob": 0.0
+      },
+      "exact": true,
+      "states": [
+        6536,
+        6536
+      ],
+      "edges": [
+        16824,
+        16824
+      ],
+      "profiles": {
+        "base": {
+          "graph_build_us": 23926,
+          "csr_build_us": 543,
+          "dp_us": 1102,
+          "draw_vertices": 2429,
+          "discard_vertices": 4106,
+          "edges": 16824,
+          "necessary_tile_calculator_calls": 2429,
+          "unnecessary_tile_calculator_calls": 4109,
+          "core_invocations": [
+            {
+              "graph_build_us": 6978,
+              "csr_build_us": 190,
+              "dp_us": 378,
+              "draw_vertices": 757,
+              "discard_vertices": 1391,
+              "edges": 5525
+            },
+            {
+              "graph_build_us": 11559,
+              "csr_build_us": 183,
+              "dp_us": 397,
+              "draw_vertices": 915,
+              "discard_vertices": 1324,
+              "edges": 5774
+            },
+            {
+              "graph_build_us": 5389,
+              "csr_build_us": 170,
+              "dp_us": 327,
+              "draw_vertices": 757,
+              "discard_vertices": 1391,
+              "edges": 5525
+            }
+          ],
+          "merge_turn_yaku_overlay_us": 1
+        },
+        "candidate": {
+          "graph_build_us": 19693,
+          "csr_build_us": 665,
+          "dp_us": 1182,
+          "draw_vertices": 2429,
+          "discard_vertices": 4106,
+          "edges": 16824,
+          "necessary_tile_calculator_calls": 757,
+          "unnecessary_tile_calculator_calls": 1394,
+          "core_invocations": [
+            {
+              "graph_build_us": 7130,
+              "csr_build_us": 336,
+              "dp_us": 423,
+              "draw_vertices": 757,
+              "discard_vertices": 1391,
+              "edges": 5525
+            },
+            {
+              "graph_build_us": 9279,
+              "csr_build_us": 179,
+              "dp_us": 417,
+              "draw_vertices": 915,
+              "discard_vertices": 1324,
+              "edges": 5774
+            },
+            {
+              "graph_build_us": 3284,
+              "csr_build_us": 150,
+              "dp_us": 342,
+              "draw_vertices": 757,
+              "discard_vertices": 1391,
+              "edges": 5525
+            }
+          ],
+          "merge_turn_yaku_overlay_us": 1
+        }
+      },
+      "case": "two-shanten-turn-yaku",
+      "base_ms": 69.44690000091214,
+      "candidate_ms": 46.87669999839272,
+      "speedup": 1.4814801383905711
+    }
+  ]
+}

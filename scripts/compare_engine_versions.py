@@ -74,7 +74,13 @@ def compare(base, candidate, tolerance=TOLERANCE):
     a,b=best(base),best(candidate); turn=base["config"]["t_min"]
     fields=("exp_score","win_prob","tenpai_prob")
     deltas={field:max(abs(x-y) for sa,sb in zip(base["stats"],candidate["stats"]) for x,y in zip(sa[field],sb[field])) for field in fields}
-    return {"recommendation_match":a["tile"] == b["tile"],"recommendations":(a["tile"],b["tile"]),"best_ev":(a["exp_score"][turn],b["exp_score"][turn]),"best_win_probability":(a["win_prob"][turn],b["win_prob"][turn]),"best_tenpai_probability":(a["tenpai_prob"][turn],b["tenpai_prob"][turn]),"ev_difference":abs(a["exp_score"][turn]-b["exp_score"][turn]),"max_differences":deltas,"exact":a["tile"] == b["tile"] and all(x <= tolerance for x in deltas.values()),"states":(base.get("searched"),candidate.get("searched")),"edges":(base.get("profile",{}).get("edges"),candidate.get("profile",{}).get("edges"))}
+    profile_keys = ("graph_build_us", "csr_build_us", "dp_us", "draw_vertices",
+                    "discard_vertices", "edges", "necessary_tile_calculator_calls",
+                    "unnecessary_tile_calculator_calls", "core_invocations",
+                    "merge_turn_yaku_overlay_us")
+    profile = lambda response: {key: response.get("profile", {}).get(key)
+                                for key in profile_keys}
+    return {"recommendation_match":a["tile"] == b["tile"],"recommendations":(a["tile"],b["tile"]),"best_ev":(a["exp_score"][turn],b["exp_score"][turn]),"best_win_probability":(a["win_prob"][turn],b["win_prob"][turn]),"best_tenpai_probability":(a["tenpai_prob"][turn],b["tenpai_prob"][turn]),"ev_difference":abs(a["exp_score"][turn]-b["exp_score"][turn]),"max_differences":deltas,"exact":a["tile"] == b["tile"] and all(x <= tolerance for x in deltas.values()),"states":(base.get("searched"),candidate.get("searched")),"edges":(base.get("profile",{}).get("edges"),candidate.get("profile",{}).get("edges")),"profiles":{"base":profile(base),"candidate":profile(candidate)}}
 
 def main():
     parser=argparse.ArgumentParser(); parser.add_argument("--base",default="engine-v0.9.13"); parser.add_argument("--candidate",default="HEAD"); parser.add_argument("--corpus",default="benchmark_corpus/smoke.json"); parser.add_argument("--timeout",type=float,default=300); parser.add_argument("--keep-worktrees",action="store_true"); parser.add_argument("--report",default=""); parser.add_argument("--request-version",default="0.9.13",help="JSON API version accepted by both revisions"); parser.add_argument("--cmake-arg",action="append",default=[],help="extra CMake configure argument; repeat as needed"); parser.add_argument("--base-binary",default="",help="reuse an already built baseline server"); parser.add_argument("--candidate-binary",default="",help="reuse an already built candidate server")

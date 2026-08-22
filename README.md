@@ -85,6 +85,12 @@ when one selected engine does not support that option. The **何切るドリル�
 button restores every calculator option from the same preset; the UI also
 shows the current deviation count and the exact requests sent to both engines.
 
+The candidate also uses a bounded internal cross-pass shape cache for the
+three-pass turn-yaku overlay. It is not a request option: the cache preserves
+the same search graph and returned values while avoiding repeated necessary/
+unnecessary-tile calculations. Its native ablation is recorded in
+[`benchmark_reports/exact_shape_cache_ablation.md`](benchmark_reports/exact_shape_cache_ablation.md).
+
 ## About
 
 日本のリーチ麻雀のルールで、点数や期待値計算を行う C++ ライブラリです。

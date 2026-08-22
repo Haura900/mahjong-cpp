@@ -797,7 +797,7 @@ class ExpectedScoreCalculator::GraphBuilder
                  const RoundState &round_state, const TableState &table_state,
                  PlayerState &player, SeparatedCount &hand_counts,
                  SeparatedCount &wall_counts, const SeparatedCount &hand_org,
-                 const int shanten_org, Profile &profile)
+                 const int shanten_org, Profile &profile, ShapeCache *shape_cache)
         : config_(config)
         , table_config_(table_config)
         , round_state_(round_state)
@@ -813,6 +813,7 @@ class ExpectedScoreCalculator::GraphBuilder
         , hand_mask_(nonzero_mask(hand_counts))
         , wall_mask_(nonzero_mask(wall_counts))
         , profile_(profile)
+        , shape_cache_(shape_cache)
         , graph_(config.calc_yaku_stats || config.calc_shapley_stats)
     {
         hand_key_.melds = meld_signature(player_.melds);
@@ -902,6 +903,7 @@ class ExpectedScoreCalculator::GraphBuilder
     std::uint64_t hand_mask_;
     std::uint64_t wall_mask_;
     Profile &profile_;
+    ShapeCache *shape_cache_;
     int exchange_distance_ = 0;
     Graph graph_;
     Cache cache1_;
@@ -1124,13 +1126,42 @@ ExpectedScoreCalculator::GraphBuilder::build_node(const bool draw,
             }
 
             if (frame.draw) {
-                ++profile_.necessary_tile_calculator_calls;
-                const auto [type, shanten, wait] = NecessaryTileCalculator::calc(
-                    player_.hand, player_.num_melds(), config_.shanten_type,
-                    table_config_.game_mode);
-                frame.type = type;
-                frame.shanten = shanten;
-                frame.flags = add_red5_flags(wait);
+                if (shape_cache_) {
+                    auto it = shape_cache_->necessary.find(hand_key_);
+                    if (it == shape_cache_->necessary.end() &&
+                        shape_cache_->necessary.size() < ShapeCache::MaxEntriesPerKind) {
+                        it = shape_cache_->necessary.try_emplace(hand_key_).first;
+                        ++profile_.necessary_tile_calculator_calls;
+                        const auto [type, shanten, wait] = NecessaryTileCalculator::calc(
+                            player_.hand, player_.num_melds(), config_.shanten_type,
+                            table_config_.game_mode);
+                        it->second = {type, shanten,
+                                      static_cast<std::uint64_t>(add_red5_flags(wait))};
+                    }
+                    if (it != shape_cache_->necessary.end()) {
+                        frame.type = it->second.type;
+                        frame.shanten = it->second.shanten;
+                        frame.flags = it->second.tiles;
+                    }
+                    else {
+                        ++profile_.necessary_tile_calculator_calls;
+                        const auto [type, shanten, wait] = NecessaryTileCalculator::calc(
+                            player_.hand, player_.num_melds(), config_.shanten_type,
+                            table_config_.game_mode);
+                        frame.type = type;
+                        frame.shanten = shanten;
+                        frame.flags = add_red5_flags(wait);
+                    }
+                }
+                else {
+                    ++profile_.necessary_tile_calculator_calls;
+                    const auto [type, shanten, wait] = NecessaryTileCalculator::calc(
+                        player_.hand, player_.num_melds(), config_.shanten_type,
+                        table_config_.game_mode);
+                    frame.type = type;
+                    frame.shanten = shanten;
+                    frame.flags = add_red5_flags(wait);
+                }
 
                 const bool can_extend_search =
                     exchange_distance_ + frame.shanten < shanten_org_ + config_.extra;
@@ -1160,13 +1191,42 @@ ExpectedScoreCalculator::GraphBuilder::build_node(const bool draw,
                 }
             }
             else {
-                ++profile_.unnecessary_tile_calculator_calls;
-                const auto [type, shanten, disc] = UnnecessaryTileCalculator::calc(
-                    player_.hand, player_.num_melds(), config_.shanten_type,
-                    table_config_.game_mode);
-                frame.type = type;
-                frame.shanten = shanten;
-                frame.flags = add_red5_flags(disc);
+                if (shape_cache_) {
+                    auto it = shape_cache_->unnecessary.find(hand_key_);
+                    if (it == shape_cache_->unnecessary.end() &&
+                        shape_cache_->unnecessary.size() < ShapeCache::MaxEntriesPerKind) {
+                        it = shape_cache_->unnecessary.try_emplace(hand_key_).first;
+                        ++profile_.unnecessary_tile_calculator_calls;
+                        const auto [type, shanten, disc] = UnnecessaryTileCalculator::calc(
+                            player_.hand, player_.num_melds(), config_.shanten_type,
+                            table_config_.game_mode);
+                        it->second = {type, shanten,
+                                      static_cast<std::uint64_t>(add_red5_flags(disc))};
+                    }
+                    if (it != shape_cache_->unnecessary.end()) {
+                        frame.type = it->second.type;
+                        frame.shanten = it->second.shanten;
+                        frame.flags = it->second.tiles;
+                    }
+                    else {
+                        ++profile_.unnecessary_tile_calculator_calls;
+                        const auto [type, shanten, disc] = UnnecessaryTileCalculator::calc(
+                            player_.hand, player_.num_melds(), config_.shanten_type,
+                            table_config_.game_mode);
+                        frame.type = type;
+                        frame.shanten = shanten;
+                        frame.flags = add_red5_flags(disc);
+                    }
+                }
+                else {
+                    ++profile_.unnecessary_tile_calculator_calls;
+                    const auto [type, shanten, disc] = UnnecessaryTileCalculator::calc(
+                        player_.hand, player_.num_melds(), config_.shanten_type,
+                        table_config_.game_mode);
+                    frame.type = type;
+                    frame.shanten = shanten;
+                    frame.flags = add_red5_flags(disc);
+                }
 
                 const bool can_extend_search =
                     exchange_distance_ + frame.shanten < shanten_org_ + config_.extra;
@@ -2723,21 +2783,25 @@ ExpectedScoreCalculator::calc(const Config &config, const TableConfig &table_con
 
     Config base_config = config;
     base_config.enable_turn_yaku = false;
+    ShapeCache shape_cache;
     Profile base_profile;
     auto [base, base_searched] = calc_core(base_config, table_config, round_state,
-                                           table_state, player, wall, &base_profile);
+                                           table_state, player, wall, &base_profile,
+                                           &shape_cache);
 
     Config overlay_on = config;
     overlay_on.enable_tegawari = false;
     Profile on_profile;
     auto [turn_on, on_searched] = calc_core(overlay_on, table_config, round_state,
-                                            table_state, player, wall, &on_profile);
+                                            table_state, player, wall, &on_profile,
+                                            &shape_cache);
 
     Config overlay_off = overlay_on;
     overlay_off.enable_turn_yaku = false;
     Profile off_profile;
     auto [turn_off, off_searched] = calc_core(overlay_off, table_config, round_state,
-                                              table_state, player, wall, &off_profile);
+                                              table_state, player, wall, &off_profile,
+                                              &shape_cache);
 
     const auto merge_start = std::chrono::steady_clock::now();
     merge_turn_yaku_overlay(base, turn_on, turn_off);
@@ -2767,7 +2831,7 @@ ExpectedScoreCalculator::calc_core(const Config &_config,
                                    const RoundState &_round_state,
                                    const TableState &_table_state,
                                    const PlayerState &_player, const MergedCount &_wall,
-                                   Profile *profile)
+                                   Profile *profile, ShapeCache *shape_cache)
 {
     Config config = _config;
     TableConfig table_config = _table_config;
@@ -2843,7 +2907,7 @@ ExpectedScoreCalculator::calc_core(const Config &_config,
     Profile &active_profile = profile ? *profile : local_profile;
     GraphBuilder graph_builder(config, table_config, round_state, table_state, player,
                                hand_counts, wall_counts, hand_org, shanten_org,
-                               active_profile);
+                               active_profile, shape_cache);
 
     if (num_tiles == 13) {
         calc_draw_hand(config, player, table_config, round_state, table_state, wall,
