@@ -30,7 +30,17 @@ run = async function(engine) {
       !engine.capabilities?.adaptive_deep_search_mode) {
     throw Error('Adaptive deep search is not supported by the selected engine.');
   }
-  return runWithoutAdaptiveCapabilityCheck(engine);
+  const p = request(engine), w = worker(engine), loadStart = performance.now();
+  // Warm-up measures module readiness, not the selected experimental policy.
+  // Keep it bounded even when the visible request selects D on a deep hand.
+  const warm = {...p, t_min:1, t_max:1, remaining_tiles:68, extra:0,
+                adaptive_deep_search_mode:0, calc_exp_score_only:true};
+  for (const k of ['calc_stats','calc_yaku_stats','calc_shapley_stats']) delete warm[k];
+  $('status').textContent = `${engine.label} を warm-up / 実行中…`;
+  await w.run(warm);
+  const loadMs = performance.now() - loadStart, calculationStart = performance.now();
+  const out = await w.run(p);
+  return {engine,response:out.result,request:p,loadMs,calcMs:performance.now()-calculationStart};
 };
 
 function refreshAdaptiveCapability() {
