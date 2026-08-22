@@ -5,7 +5,7 @@
     "commit": "e1ad6449c840f4d8181e7a7b8e0af3cbb57e4649",
     "version": "0.9.13",
     "path": "engines/v0.9.13/",
-    "capabilities": {"calc_exp_score_only": false}
+    "capabilities": {"calc_exp_score_only": false, "adaptive_deep_search_mode": false}
   },
   {
     "id": "candidate",
@@ -13,6 +13,6 @@
     "commit": "BUILD_COMMIT",
     "version": "0.9.13",
     "path": "engines/candidate/",
-    "capabilities": {"calc_exp_score_only": true}
+    "capabilities": {"calc_exp_score_only": true, "adaptive_deep_search_mode": true}
   }
 ]

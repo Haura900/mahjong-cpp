@@ -42,6 +42,8 @@ class EngineBenchmarkOptionsTest(unittest.TestCase):
         engines = json.loads((ROOT / "docs/engine-benchmark/engines.json").read_text(encoding="utf-8"))
         values = {e["id"]: e["capabilities"]["calc_exp_score_only"] for e in engines}
         self.assertEqual(values, {"v0.9.13": False, "candidate": True})
+        adaptive = {e["id"]: e["capabilities"]["adaptive_deep_search_mode"] for e in engines}
+        self.assertEqual(adaptive, {"v0.9.13": False, "candidate": True})
 
 if __name__ == "__main__":
     unittest.main()

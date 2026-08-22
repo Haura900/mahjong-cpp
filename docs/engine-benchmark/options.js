@@ -4,7 +4,8 @@
 export const DRILL_STANDARD_PRESET = Object.freeze({
   t_max: 18, extra: 1, enable_reddora: true, enable_uradora: true,
   enable_shanten_down: true, enable_tegawari: true,
-  auto_disable_deep_search: true, enable_riichi: true, enable_calls: true,
+  auto_disable_deep_search: true, adaptive_deep_search_mode: 0,
+  enable_riichi: true, enable_calls: true,
   enable_turn_yaku: true, calc_stats: true, calc_exp_score_only: false,
   ron_rate: 0.7, enable_other_win_stop: true,
   other_win_hazard: [0.0002, 0.0008, 0.0029, 0.0078, 0.0170, 0.0305, 0.0467,
@@ -20,6 +21,7 @@ export const OPTION_METADATA = Object.freeze([
   {key:'enable_shanten_down', category:'探索範囲', label:'シャンテン戻し', type:'boolean', description:'シャンテンを戻す選択肢を探索します。'},
   {key:'enable_tegawari', category:'探索範囲', label:'手替わり', type:'boolean', description:'同一シャンテン内の手替わりを探索します。'},
   {key:'auto_disable_deep_search', category:'探索範囲', label:'深い手牌で探索を自動短縮', type:'boolean', description:'ONの場合、4シャンテン以上ではシャンテン戻し・手替わりを自動的に抑制します。'},
+  {key:'adaptive_deep_search_mode', category:'探索範囲', label:'高シャンテン探索を効率化（実験）', type:'select', values:[['0','OFF（既存設定）'],['1','B: 3+でシャンテン戻しなし'],['2','C: 3+で受入れ増加手替わりのみ'],['3','D: 3+で両方']], description:'3シャンテン以上だけ探索を限定し、2シャンテン以下では通常の完全探索へ戻ります。D はシャンテン戻しを行わず、壁に残る受入れ枚数を増やす手替わりだけを残します。ON時は自動短縮より優先されます。', candidateOnly:true},
   {key:'extra', category:'探索範囲', label:'探索範囲', type:'number', min:0, max:2, description:'可能な交換のシャンテン数に加える探索余裕です。'},
   {key:'t_min', category:'探索範囲', label:'現在巡目', type:'number', min:1, max:18, scene:true, description:'計算結果を読む現在の巡目です。'},
   {key:'t_max', category:'探索範囲', label:'計算終端巡目', type:'number', min:1, max:18, description:'DPを計算する最終巡目です。'},
