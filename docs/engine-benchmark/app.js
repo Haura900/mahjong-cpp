@@ -32,3 +32,20 @@ run = async function(engine) {
   }
   return runWithoutAdaptiveCapabilityCheck(engine);
 };
+
+function refreshAdaptiveCapability() {
+  const [a,b] = selected();
+  const mode = Number($('opt-adaptive_deep_search_mode').value);
+  const supported = [a,b].filter(e => e?.capabilities?.adaptive_deep_search_mode).length;
+  if (mode > 0) {
+    $('capability-note').textContent = supported === 2
+      ? 'Adaptive deep search: 3+ は限定探索、2以下は完全探索へ戻ります。auto_disable_deep_search より優先します。'
+      : 'Adaptive deep search は片方の engine のみ対応です。同条件の A/B 比較はできません。';
+  }
+  $('capA').textContent = `${a?.label}: EV-only ${a?.capabilities?.calc_exp_score_only?'対応':'非対応'} / Adaptive ${a?.capabilities?.adaptive_deep_search_mode?'対応':'非対応'}`;
+  $('capB').textContent = `${b?.label}: EV-only ${b?.capabilities?.calc_exp_score_only?'対応':'非対応'} / Adaptive ${b?.capabilities?.adaptive_deep_search_mode?'対応':'非対応'}`;
+}
+$('opt-adaptive_deep_search_mode').addEventListener('input', refreshAdaptiveCapability);
+$('engineA').addEventListener('change', refreshAdaptiveCapability);
+$('engineB').addEventListener('change', refreshAdaptiveCapability);
+refreshAdaptiveCapability();
